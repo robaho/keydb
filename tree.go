@@ -2,31 +2,33 @@ package keydb
 
 import (
 	"bytes"
-	"fmt"
-	"strings"
 )
 
-// `Node` gets a new field, `bal`, to store the height difference between the node's subtrees.
-type Node struct {
-	key   []byte
-	data  []byte
-	left  *Node
-	right *Node
-	bal   int // height(n.right) - height(n.left)
-	tree  *tree
+// auto balancing binary Tree, based on code from 'applied go', but modified for []byte key and values,
+// and range searching
+
+type Tree struct {
+	root    *node
+	Compare KeyCompare
 }
 
-/* ### The modified `insert` function
- */
+type node struct {
+	key   []byte
+	data  []byte
+	left  *node
+	right *node
+	bal   int // height(n.right) - height(n.left)
+	tree  *Tree
+}
 
-// `insert` takes a search value and some data and inserts a new node (unless a node with the given
-// search value already exists, in which case `insert` only replaces the data).
+// `insert` takes a search Value and some data and inserts a new node (unless a node with the given
+// search Value already exists, in which case `insert` only replaces the data).
 //
 // It returns:
 //
-// * `true` if the height of the tree has increased.
+// * `true` if the height of the Tree has increased.
 // * `false` otherwise.
-func (n *Node) insert(key, data []byte) bool {
+func (n *node) insert(key, data []byte) bool {
 	// The following actions depend on whether the new search key is equal, less, or greater than
 	// the current node's search key.
 
@@ -36,20 +38,20 @@ func (n *Node) insert(key, data []byte) bool {
 		return false
 	}
 
-	compare := n.tree.compare
+	compare := n.tree.Compare
 
 	if compare.Less(key, n.key) {
 		// If there is no left child, create a new one.
 		if n.left == nil {
 			// Create a new node.
-			n.left = &Node{key: key, data: data, tree: n.tree}
+			n.left = &node{key: key, data: data, tree: n.tree}
 			// If there is no right child, the new child node has increased the height of this subtree.
 			if n.right == nil {
 				// The new left child is the only child.
 				n.bal = -1
 			} else {
 				// There is a left and a right child. The right child cannot have children;
-				// otherwise the tree would already have been out of balance at `n`.
+				// otherwise the Tree would already have been out of balance at `n`.
 				n.bal = 0
 			}
 		} else {
@@ -66,7 +68,7 @@ func (n *Node) insert(key, data []byte) bool {
 		}
 	} else {
 		if n.right == nil {
-			n.right = &Node{key: key, data: data, tree: n.tree}
+			n.right = &node{key: key, data: data, tree: n.tree}
 			if n.left == nil {
 				n.bal = 1
 			} else {
@@ -89,13 +91,8 @@ func (n *Node) insert(key, data []byte) bool {
 	return false
 }
 
-/* ### The new `rebalance()` method and its helpers `rotateLeft()`, `rotateRight()`, `rotateLeftRight()`, and `rotateRightLeft`.
-
- **Important note: Many of the assumptions about balances, left and right children, etc, as well as much of the logic usde in the functions below, apply to the `insert` operation only. For `Delete` operations, different rules and operations apply.** As noted earlier, this article focuses on `insert` only, to keep the code short and clear.
- */
-
 // `rotateLeft` takes a child node and rotates the child node's subtree to the left.
-func (n *Node) rotateLeft(c *Node) {
+func (n *node) rotateLeft(c *node) {
 	// Save `c`'s right child.
 	r := c.right
 	// `r`'s left subtree gets reassigned to `c`.
@@ -114,7 +111,7 @@ func (n *Node) rotateLeft(c *Node) {
 }
 
 // `rotateRight` is the mirrored version of `rotateLeft`.
-func (n *Node) rotateRight(c *Node) {
+func (n *node) rotateRight(c *node) {
 	l := c.left
 	c.left = l.right
 	l.right = c
@@ -128,7 +125,7 @@ func (n *Node) rotateRight(c *Node) {
 }
 
 // `rotateRightLeft` first rotates the right child of `c` to the right, then `c` to the left.
-func (n *Node) rotateRightLeft(c *Node) {
+func (n *node) rotateRightLeft(c *node) {
 	// `rotateRight` assumes that the left child has a left child, but as part of the rotate-right-left process,
 	// the left child of `c.right` is a leaf. We therefore have to tweak the balance factors before and after
 	// calling `rotateRight`.
@@ -140,15 +137,15 @@ func (n *Node) rotateRightLeft(c *Node) {
 }
 
 // `rotateLeftRight` first rotates the left child of `c` to the left, then `c` to the right.
-func (n *Node) rotateLeftRight(c *Node) {
+func (n *node) rotateLeftRight(c *node) {
 	c.left.right.bal = -1 // The considerations from rotateRightLeft also apply here.
 	c.rotateLeft(c.left)
 	c.left.bal = -1
 	n.rotateRight(c)
 }
 
-// `rebalance` brings the (sub-)tree with root node `c` back into a balanced state.
-func (n *Node) rebalance(c *Node) {
+// `rebalance` brings the (sub-)Tree with root node `c` back into a balanced state.
+func (n *node) rebalance(c *node) {
 	switch {
 	// left subtree is too high, and left child has a left child.
 	case c.bal == -2 && c.left.bal == -1:
@@ -165,13 +162,13 @@ func (n *Node) rebalance(c *Node) {
 	}
 }
 
-func (n *Node) Find(key []byte) ([]byte, bool) {
+func (n *node) Find(key []byte) ([]byte, bool) {
 
 	if n == nil {
 		return nil, false
 	}
 
-	compare := n.tree.compare
+	compare := n.tree.Compare
 
 	if bytes.Equal(key, n.key) {
 		return n.data, true
@@ -184,13 +181,15 @@ func (n *Node) Find(key []byte) ([]byte, bool) {
 	}
 }
 
-func (n *Node) Remove(key []byte) ([]byte, bool) {
+// Remove does not actual remove the node, but instead stores a 'nil' Value. This is essential to allow the
+// memory index to track removals for other segments
+func (n *node) Remove(key []byte) ([]byte, bool) {
 
 	if n == nil {
 		return nil, false
 	}
 
-	compare := n.tree.compare
+	compare := n.tree.Compare
 
 	if bytes.Equal(key, n.key) {
 		prev := n.data
@@ -205,70 +204,40 @@ func (n *Node) Remove(key []byte) ([]byte, bool) {
 	}
 }
 
-// `Dump` dumps the structure of the subtree starting at node `n`, including node search values and balance factors.
-// Parameter `i` sets the line indent. `lr` is a prefix denoting the left or the right child, respectively.
-func (n *Node) Dump(i int, lr string) {
-	if n == nil {
+func (t *Tree) Insert(key, data []byte) {
+	if t.root == nil {
+		t.root = &node{key: key, data: data, tree: t}
 		return
 	}
-	indent := ""
-	if i > 0 {
-		//indent = strings.Repeat(" ", (i-1)*4) + "+" + strings.Repeat("-", 3)
-		indent = strings.Repeat(" ", (i-1)*4) + "+" + lr + "--"
-	}
-	fmt.Printf("%s%s[%d]\n", indent, n.key, n.bal)
-	n.left.Dump(i+1, "L")
-	n.right.Dump(i+1, "R")
-}
-
-/*
-## tree
-
-Changes to the tree type:
-
-* `insert` now takes care of rebalancing the root node if necessary.
-* A new method, `Dump`, exist for invoking `Node.Dump`.
-* `Delete` is gone.
-
-*/
-
-//
-type tree struct {
-	Root    *Node
-	compare KeyCompare
-}
-
-func (t *tree) Insert(key, data []byte) {
-	if t.Root == nil {
-		t.Root = &Node{key: key, data: data, tree: t}
-		return
-	}
-	t.Root.insert(key, data)
+	t.root.insert(key, data)
 	// If the root node gets out of balance,
-	if t.Root.bal < -1 || t.Root.bal > 1 {
+	if t.root.bal < -1 || t.root.bal > 1 {
 		t.rebalance()
 	}
 }
 
-// `Node`'s `rebalance` method is invoked from the parent node of the node that needs rebalancing.
-// However, the root node of a tree has no parent node.
-// Therefore, `tree`'s `rebalance` method creates a fake parent node for rebalancing the root node.
-func (t *tree) rebalance() {
-	fakeParent := &Node{left: t.Root, key: []byte{}, tree: t}
-	fakeParent.rebalance(t.Root)
+// `node`'s `rebalance` method is invoked from the parent node of the node that needs rebalancing.
+// However, the root node of a Tree has no parent node.
+// Therefore, `Tree`'s `rebalance` method creates a fake parent node for rebalancing the root node.
+func (t *Tree) rebalance() {
+	fakeParent := &node{left: t.root, key: []byte{}, tree: t}
+	fakeParent.rebalance(t.root)
 	// Fetch the new root node from the fake parent node
-	t.Root = fakeParent.left
+	t.root = fakeParent.left
 }
 
-func (t *tree) Find(key []byte) ([]byte, bool) {
-	if t.Root == nil {
+// return the value for a key, ok is true if the key was found
+func (t *Tree) Find(key []byte) (value []byte, ok bool) {
+	if t.root == nil {
 		return nil, false
 	}
-	return t.Root.Find(key)
+	return t.root.Find(key)
 }
 
-func (t *tree) Remove(key []byte) ([]byte, bool) {
-	old, ok := t.Root.Remove(key)
+// remove the value for a key, returning it. ok is true if the node existed and was found. If the key was not
+// found a 'nil' value is inserted into the tree
+func (t *Tree) Remove(key []byte) (value []byte, ok bool) {
+	old, ok := t.root.Remove(key)
 	if !ok {
 		t.Insert(key, nil)
 		return nil, false
@@ -277,28 +246,13 @@ func (t *tree) Remove(key []byte) ([]byte, bool) {
 	}
 }
 
-func (t *tree) Traverse(n *Node, f func(*Node) bool) bool {
-	if n == nil {
-		return false
-	}
-	if !t.Traverse(n.left, f) {
-		return false
-	}
-	f(n)
-	if !t.Traverse(n.right, f) {
-		return false
-	}
-	return false
+type TreeEntry struct {
+	Key   []byte
+	Value []byte
 }
 
-type Entry struct {
-	key   []byte
-	value []byte
-}
-
-/* The functions prints all the keys which in the given range [k1..k2].
-   The function assumes than lower < upper, or lower/upper is nil */
-func FindNodes(node *Node, compare KeyCompare, lower []byte, upper []byte, fn func(*Node)) {
+// The functions finds all nodes within the provided key range, call function fn on each found node
+func FindNodes(node *node, compare KeyCompare, lower []byte, upper []byte, fn func(*node)) {
 	if node == nil {
 		return
 	}
@@ -321,23 +275,23 @@ func FindNodes(node *Node, compare KeyCompare, lower []byte, upper []byte, fn fu
 	}
 }
 
-func (t *tree) FindNodes(lower []byte, upper []byte) []Entry {
-	if t.Root == nil {
+func (t *Tree) FindNodes(lower []byte, upper []byte) []TreeEntry {
+	if t.root == nil {
 		return nil
 	}
 
-	compare := t.compare
+	compare := t.Compare
 
-	results := make([]Entry, 0)
+	results := make([]TreeEntry, 0)
 
-	nodeInRange := func(n *Node) {
-		results = append(results, Entry{n.key, n.data})
+	nodeInRange := func(n *node) {
+		results = append(results, TreeEntry{n.key, n.data})
 	}
-	FindNodes(t.Root, compare, lower, upper, nodeInRange)
+	FindNodes(t.root, compare, lower, upper, nodeInRange)
 	return results
 }
 
-func isNodeInRange(n *Node, compare KeyCompare, lower []byte, upper []byte) bool {
+func isNodeInRange(n *node, compare KeyCompare, lower []byte, upper []byte) bool {
 	if n == nil {
 		return false
 	}
@@ -346,9 +300,4 @@ func isNodeInRange(n *Node, compare KeyCompare, lower []byte, upper []byte) bool
 	} else {
 		return (upper == nil || compare.Less(n.key, upper)) && (lower == nil || compare.Less(lower, n.key))
 	}
-}
-
-// `Dump` dumps the tree structure.
-func (t *tree) Dump() {
-	t.Root.Dump(0, "")
 }

@@ -25,7 +25,7 @@ func TestDatabase(t *testing.T) {
 	}
 	err = tx.Put([]byte("mykey"), []byte("myvalue"))
 	if err != nil {
-		t.Fatal("unable to put key/value", err)
+		t.Fatal("unable to put key/Value", err)
 	}
 	_, err = tx.Get([]byte("mykey"))
 	if err != nil {
@@ -33,7 +33,7 @@ func TestDatabase(t *testing.T) {
 	}
 	err = tx.Put([]byte("mykey2"), []byte("myvalue2"))
 	if err != nil {
-		t.Fatal("unable to put key/value", err)
+		t.Fatal("unable to put key/Value", err)
 	}
 	_, err = tx.Get([]byte("mykey2"))
 	if err != nil {
@@ -80,7 +80,7 @@ func TestCommit(t *testing.T) {
 	}
 	err = tx.Put([]byte("mykey"), []byte("myvalue"))
 	if err != nil {
-		t.Fatal("unable to put key/value", err)
+		t.Fatal("unable to put key/Value", err)
 	}
 	_, err = tx.Get([]byte("mykey"))
 	if err != nil {
@@ -88,7 +88,7 @@ func TestCommit(t *testing.T) {
 	}
 	err = tx.Put([]byte("mykey2"), []byte("myvalue2"))
 	if err != nil {
-		t.Fatal("unable to put key/value", err)
+		t.Fatal("unable to put key/Value", err)
 	}
 	_, err = tx.Get([]byte("mykey2"))
 	if err != nil {
@@ -133,15 +133,15 @@ func TestDatabaseIterator(t *testing.T) {
 	}
 	err = tx.Put([]byte("mykey"), []byte("myvalue"))
 	if err != nil {
-		t.Fatal("unable to put key/value", err)
+		t.Fatal("unable to put key/Value", err)
 	}
 	err = tx.Put([]byte("mykey2"), []byte("myvalue2"))
 	if err != nil {
-		t.Fatal("unable to put key/value", err)
+		t.Fatal("unable to put key/Value", err)
 	}
 	err = tx.Put([]byte("mykey3"), []byte("myvalue3"))
 	if err != nil {
-		t.Fatal("unable to put key/value", err)
+		t.Fatal("unable to put key/Value", err)
 	}
 	itr, err := tx.Lookup([]byte("mykey2"), nil)
 
@@ -153,7 +153,7 @@ func TestDatabaseIterator(t *testing.T) {
 		t.Fatal("wrong key", string(key), "mykey2")
 	}
 	if !bytes.Equal(value, []byte("myvalue2")) {
-		t.Fatal("wrong value", string(key), "myvalue2")
+		t.Fatal("wrong Value", string(key), "myvalue2")
 	}
 	key, value, err = itr.Next()
 	if err != nil {
@@ -163,7 +163,7 @@ func TestDatabaseIterator(t *testing.T) {
 		t.Fatal("wrong key", string(key), "mykey3")
 	}
 	if !bytes.Equal(value, []byte("myvalue3")) {
-		t.Fatal("wrong value", string(key), "myvalue3")
+		t.Fatal("wrong Value", string(key), "myvalue3")
 	}
 	itr, err = tx.Lookup(nil, []byte("mykey2"))
 	key, value, err = itr.Next()
@@ -207,7 +207,7 @@ func TestPersistence(t *testing.T) {
 	}
 	err = tx.Put([]byte("mykey"), []byte("myvalue"))
 	if err != nil {
-		t.Fatal("unable to put key/value", err)
+		t.Fatal("unable to put key/Value", err)
 	}
 
 	tx.Commit()
