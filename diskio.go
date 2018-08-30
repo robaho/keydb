@@ -32,7 +32,7 @@ func writeSegmentToDisk(db *Database, table string, seg segment) {
 	keyFilename := filepath.Join(db.path, fmt.Sprint(table, ".keys.", id))
 	dataFilename := filepath.Join(db.path, fmt.Sprint(table, ".data.", id))
 
-	ds, err := writeAndLoadSegment(keyFilename, dataFilename, itr, db.tables[table].table.Compare)
+	ds, err := writeAndLoadSegment(keyFilename, dataFilename, itr, seg.getKeyCompare())
 	if err != nil && err != emptySegment {
 		panic(err)
 	}

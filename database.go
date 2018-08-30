@@ -41,11 +41,16 @@ type LookupIterator interface {
 
 var dblock sync.RWMutex
 
-func Open(path string, tables []Table) (*Database, error) {
+// if createIfNeeded is true, them if the db doesn't exist it will be created
+func Open(path string, tables []Table, createIfNeeded bool) (*Database, error) {
 	dblock.Lock()
 	defer dblock.Unlock()
 
-	return open(path, tables)
+	db, err := open(path, tables)
+	if err == NoDatabaseFound && createIfNeeded == true {
+		return create(path, tables)
+	}
+	return db, err
 }
 
 func open(path string, tables []Table) (*Database, error) {
@@ -54,12 +59,12 @@ func open(path string, tables []Table) (*Database, error) {
 
 	fi, err := os.Stat(path)
 	if err != nil {
-		return nil, err
+		return nil, NoDatabaseFound
 	}
 	switch mode := fi.Mode(); {
 	case mode.IsDir():
 	case mode.IsRegular():
-		return nil, errors.New("path is not a directory")
+		return nil, NoDatabaseFound
 	}
 
 	abs, err := filepath.Abs(path + "/lockfile")
@@ -90,10 +95,7 @@ func open(path string, tables []Table) (*Database, error) {
 	return db, nil
 }
 
-func Create(path string, tables []Table) (*Database, error) {
-	dblock.Lock()
-	defer dblock.Unlock()
-
+func create(path string, tables []Table) (*Database, error) {
 	path = filepath.Clean(path)
 
 	err := os.MkdirAll(path, os.ModePerm)

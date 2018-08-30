@@ -1,7 +1,6 @@
 package keydb
 
 import (
-	"fmt"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -58,7 +57,7 @@ func mergeDiskSegments(db *Database) {
 					os.Remove(seg1.keyFile.Name())
 					os.Remove(seg1.dataFile.Name())
 
-					fmt.Println("merged segments", seg0.keyFile.Name(), seg1.keyFile.Name())
+					//fmt.Println("merged segments", seg0.keyFile.Name(), seg1.keyFile.Name())
 
 					break
 

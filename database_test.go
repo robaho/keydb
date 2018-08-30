@@ -14,15 +14,11 @@ func TestDatabase(t *testing.T) {
 	tables := []keydb.Table{keydb.Table{"main", keydb.DefaultKeyCompare{}}}
 	keydb.Remove("test/mydb")
 
-	db, err := keydb.Open("test/mydb", tables)
-	if err == nil {
-		t.Fatal("database should not exist", err)
-	}
-
-	db, err = keydb.Create("test/mydb", tables)
+	db, err := keydb.Open("test/mydb", tables, true)
 	if err != nil {
 		t.Fatal("unable to create database", err)
 	}
+
 	tx, err := db.BeginTX("main")
 	if err != nil {
 		t.Fatal("unable to create transaction", err)
@@ -69,15 +65,7 @@ func TestCommit(t *testing.T) {
 	tables := []keydb.Table{keydb.Table{"main", keydb.DefaultKeyCompare{}}}
 	keydb.Remove("test/mydb")
 
-	db, err := keydb.Open("test/mydb", tables)
-	if err == nil {
-		t.Fatal("database should not exist", err)
-	}
-
-	db, err = keydb.Create("test/mydb", tables)
-	if err != nil {
-		t.Fatal("unable to create database", err)
-	}
+	db, err := keydb.Open("test/mydb", tables, true)
 	tx, err := db.BeginTX("main")
 	if err != nil {
 		t.Fatal("unable to create transaction", err)
@@ -127,7 +115,7 @@ func TestDatabaseIterator(t *testing.T) {
 	tables := []keydb.Table{keydb.Table{"main", keydb.DefaultKeyCompare{}}}
 	keydb.Remove("test/mydb")
 
-	db, err := keydb.Create("test/mydb", tables)
+	db, err := keydb.Open("test/mydb", tables, true)
 	if err != nil {
 		t.Fatal("unable to create database", err)
 	}
@@ -196,7 +184,7 @@ func TestSegmentMerge(t *testing.T) {
 	tables := []keydb.Table{keydb.Table{"main", keydb.DefaultKeyCompare{}}}
 	keydb.Remove("test/mydb")
 
-	db, err := keydb.Create("test/mydb", tables)
+	db, err := keydb.Open("test/mydb", tables, true)
 	if err != nil {
 		t.Fatal("unable to create database", err)
 	}
@@ -214,11 +202,19 @@ func TestSegmentMerge(t *testing.T) {
 		tx.Commit()
 	}
 
-	time.Sleep(5 * time.Second)
+	var count = 0
+	for {
+		count0 := countFiles("test/mydb")
+		time.Sleep(1 * time.Second)
+		count1 := countFiles("test/mydb")
+		if count0 == count1 {
+			count = count0
+			break
+		}
+	}
 
 	db.Close()
 
-	count := countFiles("test/mydb")
 	if count != 2 {
 		t.Fatal("there should only be a single segment at this point")
 	}
@@ -232,7 +228,6 @@ func countFiles(path string) int {
 			count++
 		}
 	}
-	fmt.Println("files", files)
 	return count
 }
 
@@ -240,15 +235,11 @@ func TestPersistence(t *testing.T) {
 	tables := []keydb.Table{keydb.Table{"main", keydb.DefaultKeyCompare{}}}
 	keydb.Remove("test/mydb")
 
-	db, err := keydb.Open("test/mydb", tables)
-	if err == nil {
-		t.Fatal("database should not exist", err)
-	}
-
-	db, err = keydb.Create("test/mydb", tables)
+	db, err := keydb.Open("test/mydb", tables, true)
 	if err != nil {
 		t.Fatal("unable to create database", err)
 	}
+
 	tx, err := db.BeginTX("main")
 	if err != nil {
 		t.Fatal("unable to create transaction", err)
@@ -262,7 +253,7 @@ func TestPersistence(t *testing.T) {
 
 	db.Close()
 
-	db, err = keydb.Open("test/mydb", tables)
+	db, err = keydb.Open("test/mydb", tables, false)
 	if err != nil {
 		t.Fatal("database did not exist", err)
 	}
