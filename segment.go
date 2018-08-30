@@ -6,4 +6,5 @@ type segment interface {
 	Remove(key []byte) ([]byte, error)
 	Lookup(lower []byte, upper []byte) (LookupIterator, error)
 	getKeyCompare() KeyCompare
+	Close()
 }

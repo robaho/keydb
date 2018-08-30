@@ -13,7 +13,6 @@ type Database struct {
 	tables       map[string]*internalTable
 	open         bool
 	transactions map[uint64]*Transaction
-	count        int
 	path         string
 	wg           sync.WaitGroup
 	nextSegID    uint64
@@ -38,7 +37,6 @@ type LookupIterator interface {
 }
 
 var dblock sync.RWMutex
-var openDBs = make(map[string]*Database)
 
 func Open(path string, tables []Table) (*Database, error) {
 	dblock.Lock()
@@ -51,11 +49,6 @@ func open(path string, tables []Table) (*Database, error) {
 
 	path = filepath.Clean(path)
 
-	if db, ok := openDBs[path]; ok {
-		db.count++
-		return db, nil
-	}
-
 	fi, err := os.Stat(path)
 	if err != nil {
 		return nil, err
@@ -66,26 +59,20 @@ func open(path string, tables []Table) (*Database, error) {
 		return nil, errors.New("path is not a directory")
 	}
 
-	db := &Database{path: path, count: 1, open: true}
+	db := &Database{path: path, open: true}
 	db.transactions = make(map[uint64]*Transaction)
 	db.tables = make(map[string]*internalTable)
 	for _, v := range tables {
-		it := &internalTable{table: v, segments: []segment{}}
+		it := &internalTable{table: v, segments: loadDiskSegments(path, v.Name, v.Compare)}
 		db.tables[v.Name] = it
 	}
-	openDBs[path] = db
 	return db, nil
 }
-
 func Create(path string, tables []Table) (*Database, error) {
 	dblock.Lock()
 	defer dblock.Unlock()
 
 	path = filepath.Clean(path)
-
-	if _, ok := openDBs[path]; ok {
-		return nil, DatabaseInUse
-	}
 
 	err := os.MkdirAll(path, os.ModePerm)
 	if err != nil {
@@ -98,10 +85,6 @@ func Create(path string, tables []Table) (*Database, error) {
 func Remove(path string) error {
 	dblock.Lock()
 	defer dblock.Unlock()
-
-	if _, ok := openDBs[path]; ok {
-		return DatabaseInUse
-	}
 
 	path = filepath.Clean(path)
 
@@ -124,15 +107,19 @@ func (db *Database) Close() error {
 	if !db.open {
 		return DatabaseClosed
 	}
-	if db.count == 1 && len(db.transactions) > 0 {
+	if len(db.transactions) > 0 {
 		return DatabaseHasOpenTransactions
 	}
-	db.count--
-	if db.count == 0 {
-		db.wg.Wait()
-		db.open = false
-		delete(openDBs, db.path)
+
+	db.wg.Wait()
+
+	for _, table := range db.tables {
+		for _, segment := range table.segments {
+			segment.Close()
+		}
 	}
+	db.open = false
+
 	return nil
 }
 func (db *Database) nextSegmentID() uint64 {

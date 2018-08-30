@@ -48,6 +48,9 @@ func (ms *memorySegment) Lookup(lower []byte, upper []byte) (LookupIterator, err
 	return &entrySetIterator{results: ms.tree.FindNodes(lower, upper), index: 0}, nil
 }
 
+func (ms *memorySegment) Close() {
+}
+
 type entrySetIterator struct {
 	results []TreeEntry
 	index   int

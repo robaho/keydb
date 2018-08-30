@@ -190,14 +190,14 @@ func TestDatabaseIterator(t *testing.T) {
 
 func TestPersistence(t *testing.T) {
 	tables := []keydb.Table{keydb.Table{"main", keydb.DefaultKeyCompare{}}}
-	keydb.Remove("mydb")
+	keydb.Remove("test/mydb")
 
-	db, err := keydb.Open("mydb", tables)
+	db, err := keydb.Open("test/mydb", tables)
 	if err == nil {
 		t.Fatal("database should not exist", err)
 	}
 
-	db, err = keydb.Create("mydb", tables)
+	db, err = keydb.Create("test/mydb", tables)
 	if err != nil {
 		t.Fatal("unable to create database", err)
 	}
@@ -214,7 +214,7 @@ func TestPersistence(t *testing.T) {
 
 	db.Close()
 
-	db, err = keydb.Open("mydb", tables)
+	db, err = keydb.Open("test/mydb", tables)
 	if err != nil {
 		t.Fatal("database did not exist", err)
 	}

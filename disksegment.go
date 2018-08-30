@@ -3,7 +3,12 @@ package keydb
 import (
 	"bytes"
 	"encoding/binary"
+	"io/ioutil"
 	"os"
+	"path/filepath"
+	"sort"
+	"strconv"
+	"strings"
 )
 
 // the key file uses 4096 byte blocks, the format is
@@ -22,12 +27,59 @@ type diskSegment struct {
 	keyBlocks int64
 	dataFile  *os.File
 	compare   KeyCompare
+	id        uint64
 }
 
 type diskSegmentIterator struct {
+	segment      *diskSegment
+	lower        []byte
+	upper        []byte
+	buffer       []byte
+	block        int64
+	bufferOffset int
+	key          []byte
+	data         []byte
+	isValid      bool
+	err          error
+	finished     bool
+}
+
+func loadDiskSegments(directory string, table string, compare KeyCompare) []segment {
+	files, err := ioutil.ReadDir(directory)
+	if err != nil {
+		panic(err)
+	}
+	segments := []segment{}
+	for _, file := range files {
+		if strings.HasPrefix(file.Name(), table) {
+			id := getSegmentID(file.Name())
+			keyFilename := filepath.Join(directory, table+".keys."+strconv.FormatUint(id, 10))
+			dataFilename := filepath.Join(directory, table+".data."+strconv.FormatUint(id, 10))
+			segments = append(segments, newDiskSegment(keyFilename, dataFilename, compare))
+		}
+	}
+	sort.Slice(segments, func(i, j int) bool {
+		return segments[i].(*diskSegment).id < segments[j].(*diskSegment).id
+	})
+	return segments
+}
+
+func getSegmentID(filename string) uint64 {
+	base := filepath.Base(filename)
+	index := strings.LastIndex(base, ".")
+	if index >= 0 {
+		id, err := strconv.Atoi(base[index+1:])
+		if err == nil {
+			return uint64(id)
+		}
+	}
+	return 0
 }
 
 func newDiskSegment(keyFilename, dataFilename string, compare KeyCompare) segment {
+
+	segmentID := getSegmentID(keyFilename)
+
 	ds := &diskSegment{}
 	kf, err := os.Open(keyFilename)
 	if err != nil {
@@ -47,20 +99,84 @@ func newDiskSegment(keyFilename, dataFilename string, compare KeyCompare) segmen
 
 	ds.keyBlocks = (fi.Size()-1)/keyBlockSize + 1
 	ds.compare = compare
+	ds.id = segmentID
 
 	return ds
 }
 
-func (dsi *diskSegmentIterator) HasNext() bool {
-	panic("implement me")
-}
-
 func (dsi *diskSegmentIterator) Next() (key []byte, value []byte, err error) {
-	panic("implement me")
+	if dsi.isValid {
+		dsi.isValid = false
+		return dsi.key, dsi.data, dsi.err
+	}
+	dsi.nextKeyValue()
+	return dsi.key, dsi.data, dsi.err
 }
 
-func (dsi *diskSegmentIterator) peekKey() []byte {
-	panic("implement me")
+func (dsi *diskSegmentIterator) peekKey() ([]byte, error) {
+	if dsi.isValid {
+		return dsi.key, dsi.err
+	}
+	dsi.nextKeyValue()
+	return dsi.key, dsi.err
+}
+
+func (dsi *diskSegmentIterator) nextKeyValue() error {
+	if dsi.finished {
+		return EndOfIterator
+	}
+	for {
+		keylen := binary.LittleEndian.Uint16(dsi.buffer[dsi.bufferOffset:])
+		if keylen == 0xFFFF {
+			dsi.block++
+			if dsi.block == dsi.segment.keyBlocks {
+				dsi.finished = true
+				dsi.err = EndOfIterator
+				dsi.key = nil
+				dsi.data = nil
+				dsi.isValid = true
+				return dsi.err
+			}
+			dsi.segment.keyFile.ReadAt(dsi.buffer, dsi.block*keyBlockSize)
+			dsi.bufferOffset = 0
+			continue
+		}
+		dsi.bufferOffset += 2
+		key := dsi.buffer[dsi.bufferOffset : dsi.bufferOffset+int(keylen)]
+		dsi.bufferOffset += int(keylen)
+		dataoffset := binary.LittleEndian.Uint64(dsi.buffer[dsi.bufferOffset:])
+		dsi.bufferOffset += 8
+		datalen := binary.LittleEndian.Uint32(dsi.buffer[dsi.bufferOffset:])
+		dsi.bufferOffset += 4
+
+		if dsi.lower != nil {
+			if dsi.segment.compare.Less(key, dsi.lower) {
+				continue
+			}
+			if bytes.Equal(key, dsi.lower) {
+				goto found
+			}
+		}
+		if dsi.upper != nil {
+			if bytes.Equal(key, dsi.upper) {
+				goto found
+			}
+			if !dsi.segment.compare.Less(key, dsi.upper) {
+				dsi.finished = true
+				dsi.isValid = true
+				dsi.key = nil
+				dsi.data = nil
+				dsi.err = EndOfIterator
+				return EndOfIterator
+			}
+		}
+	found:
+		dsi.data = make([]byte, datalen)
+		_, err := dsi.segment.dataFile.ReadAt(dsi.data, int64(dataoffset))
+		dsi.key = key
+		dsi.isValid = true
+		return err
+	}
 }
 
 func (ds *diskSegment) getKeyCompare() KeyCompare {
@@ -144,9 +260,24 @@ func scanBlock(ds *diskSegment, block int64, key []byte, buffer []byte) (offset 
 }
 
 func (ds *diskSegment) Remove(key []byte) ([]byte, error) {
-	panic("disk segments are not mutable, unable to Remove")
+	panic("disk segments are immutable, unable to Remove")
 }
 
 func (ds *diskSegment) Lookup(lower []byte, upper []byte) (LookupIterator, error) {
-	panic("implement me")
+	buffer := make([]byte, keyBlockSize)
+	var block int64 = 0
+	if lower != nil {
+		startBlock, err := binarySearch0(ds, 0, ds.keyBlocks-1, lower, buffer)
+		if err != nil {
+			return nil, err
+		}
+		block = startBlock
+	}
+	ds.keyFile.ReadAt(buffer, block*keyBlockSize)
+	return &diskSegmentIterator{segment: ds, lower: lower, upper: upper, buffer: buffer, block: block}, nil
+}
+
+func (ds *diskSegment) Close() {
+	ds.keyFile.Close()
+	ds.dataFile.Close()
 }

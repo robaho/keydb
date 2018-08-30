@@ -29,10 +29,13 @@ func writeSegmentToDisk(db *Database, table string, seg segment) {
 
 	id := db.nextSegmentID()
 
-	keyFilename := filepath.Join(db.path, fmt.Sprint(table, ".", id, ".keys"))
-	dataFilename := filepath.Join(db.path, fmt.Sprint(table, ".", id, ".data"))
+	keyFilename := filepath.Join(db.path, fmt.Sprint(table, ".keys.", id))
+	dataFilename := filepath.Join(db.path, fmt.Sprint(table, ".data.", id))
 
 	ds, err := writeAndLoadSegment(keyFilename, dataFilename, itr, db.tables[table].table.Compare)
+	if err != nil && err != emptySegment {
+		panic(err)
+	}
 
 	db.tables[table].Lock()
 	defer db.tables[table].Unlock()
@@ -40,7 +43,9 @@ func writeSegmentToDisk(db *Database, table string, seg segment) {
 	segments := make([]segment, 0)
 	for _, v := range db.tables[table].segments {
 		if v == seg {
-			segments = append(segments, ds)
+			if ds != nil {
+				segments = append(segments, ds)
+			}
 		} else {
 			segments = append(segments, v)
 		}

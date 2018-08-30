@@ -69,6 +69,9 @@ func (tx *Transaction) Remove(key []byte) ([]byte, error) {
 	}
 	return tx.access.Remove(key)
 }
+
+// find matching record between lower and upper inclusive. lower or upper can be nil and
+// then the range is unbounded on that side
 func (tx *Transaction) Lookup(lower []byte, upper []byte) (LookupIterator, error) {
 	if !tx.open {
 		return nil, TransactionClosed
