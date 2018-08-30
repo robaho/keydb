@@ -2,6 +2,7 @@ package keydb
 
 import (
 	"errors"
+	"github.com/nightlyone/lockfile"
 	"os"
 	"path/filepath"
 	"sync"
@@ -16,6 +17,7 @@ type Database struct {
 	path         string
 	wg           sync.WaitGroup
 	nextSegID    uint64
+	lockfile     lockfile.Lockfile
 }
 
 type Table struct {
@@ -59,7 +61,21 @@ func open(path string, tables []Table) (*Database, error) {
 		return nil, errors.New("path is not a directory")
 	}
 
+	abs, err := filepath.Abs(path + "/lockfile")
+	if err != nil {
+		return nil, err
+	}
+	lf, err := lockfile.New(abs)
+	if err != nil {
+		return nil, err
+	}
+	err = lf.TryLock()
+	if err != nil {
+		return nil, DatabaseInUse
+	}
+
 	db := &Database{path: path, open: true}
+	db.lockfile = lf
 	db.transactions = make(map[uint64]*Transaction)
 	db.tables = make(map[string]*internalTable)
 	for _, v := range tables {
@@ -92,6 +108,20 @@ func Remove(path string) error {
 	if err != nil {
 		return err
 	}
+
+	abs, err := filepath.Abs(path + "/lockfile")
+	if err != nil {
+		return err
+	}
+	lf, err := lockfile.New(abs)
+	if err != nil {
+		return err
+	}
+	err = lf.TryLock()
+	if err != nil {
+		return DatabaseInUse
+	}
+
 	switch mode := fi.Mode(); {
 	case mode.IsDir():
 	case mode.IsRegular():
@@ -118,6 +148,8 @@ func (db *Database) Close() error {
 			segment.Close()
 		}
 	}
+
+	db.lockfile.Unlock()
 	db.open = false
 
 	return nil
