@@ -70,11 +70,14 @@ func (msi *multiSegmentIterator) Next() (key []byte, value []byte, err error) {
 	return
 }
 
-func newMultiSegment(segments []segment, writable segment) *multiSegment {
-	return &multiSegment{segments: segments, writable: writable}
+func newMultiSegment(segments []segment, writable segment, compare KeyCompare) *multiSegment {
+	return &multiSegment{segments: segments, writable: writable, compare: compare}
 }
 
 func (ms *multiSegment) Put(key []byte, value []byte) error {
+	if ms.writable == nil {
+		panic(ReadOnlySegment)
+	}
 	return ms.writable.Put(key, value)
 }
 
@@ -94,6 +97,9 @@ func (ms *multiSegment) Get(key []byte) ([]byte, error) {
 }
 
 func (ms *multiSegment) Remove(key []byte) ([]byte, error) {
+	if ms.writable == nil {
+		panic(ReadOnlySegment)
+	}
 	return ms.writable.Remove(key)
 }
 

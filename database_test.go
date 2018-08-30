@@ -2,7 +2,11 @@ package keydb_test
 
 import (
 	"bytes"
+	"fmt"
+	"io/ioutil"
+	"strings"
 	"testing"
+	"time"
 )
 import "github.com/robaho/keydb"
 
@@ -186,6 +190,50 @@ func TestDatabaseIterator(t *testing.T) {
 	if err != nil {
 		t.Fatal("unable to close database", err)
 	}
+}
+
+func TestSegmentMerge(t *testing.T) {
+	tables := []keydb.Table{keydb.Table{"main", keydb.DefaultKeyCompare{}}}
+	keydb.Remove("test/mydb")
+
+	db, err := keydb.Create("test/mydb", tables)
+	if err != nil {
+		t.Fatal("unable to create database", err)
+	}
+
+	for i := 0; i < 100; i++ {
+		tx, err := db.BeginTX("main")
+		if err != nil {
+			t.Fatal("unable to create transaction", err)
+		}
+		err = tx.Put([]byte(fmt.Sprint("mykey", i)), []byte(fmt.Sprint("myvalue", i)))
+		if err != nil {
+			t.Fatal("unable to put key/Value", err)
+		}
+
+		tx.Commit()
+	}
+
+	time.Sleep(5 * time.Second)
+
+	db.Close()
+
+	count := countFiles("test/mydb")
+	if count != 2 {
+		t.Fatal("there should only be a single segment at this point")
+	}
+}
+
+func countFiles(path string) int {
+	files, _ := ioutil.ReadDir(path)
+	count := 0
+	for _, file := range files {
+		if strings.Index(file.Name(), ".keys.") >= 0 || strings.Index(file.Name(), ".data.") >= 0 {
+			count++
+		}
+	}
+	fmt.Println("files", files)
+	return count
 }
 
 func TestPersistence(t *testing.T) {

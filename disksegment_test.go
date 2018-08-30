@@ -19,6 +19,20 @@ func TestDiskSegment(t *testing.T) {
 		t.Fatal(err)
 	}
 	ds, err := writeAndLoadSegment("test/keyfile", "test/datafile", itr, m.getKeyCompare())
+
+	itr, err = ds.Lookup(nil, nil)
+	count := 0
+	for {
+		_, _, err := itr.Next()
+		if err != nil {
+			break
+		}
+		count++
+	}
+	if count != 3 {
+		t.Fatal("incorrect count", count)
+	}
+
 	value, err := ds.Get([]byte("mykey"))
 	if err != nil {
 		t.Fatal(err)
@@ -59,6 +73,20 @@ func TestLargeDiskSegment(t *testing.T) {
 		t.Fatal(err)
 	}
 	ds, err := writeAndLoadSegment("test/keyfile", "test/datafile", itr, m.getKeyCompare())
+
+	itr, err = ds.Lookup(nil, nil)
+	count := 0
+	for {
+		_, _, err := itr.Next()
+		if err != nil {
+			break
+		}
+		count++
+	}
+	if count != 100000 {
+		t.Fatal("incorrect count", count)
+	}
+
 	value, err := ds.Get([]byte("mykey1"))
 	if err != nil {
 		t.Fatal(err)

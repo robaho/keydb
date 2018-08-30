@@ -20,8 +20,8 @@ func (db *Database) BeginTX(table string) (*Transaction, error) {
 	dblock.Lock()
 	defer dblock.Unlock()
 
-	if !db.open {
-		return nil, errors.New("database is not open")
+	if db.closing {
+		return nil, DatabaseClosed
 	}
 
 	it, ok := db.tables[table]
@@ -86,7 +86,7 @@ func (tx *Transaction) Commit() error {
 
 	table := tx.db.tables[tx.table]
 
-	table.segments = tx.access.segments
+	table.segments = append(table.segments, tx.access.writable)
 
 	tx.db.tables[tx.table] = table
 

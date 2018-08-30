@@ -13,6 +13,7 @@ type Database struct {
 	sync.Mutex
 	tables       map[string]*internalTable
 	open         bool
+	closing      bool
 	transactions map[uint64]*Transaction
 	path         string
 	wg           sync.WaitGroup
@@ -82,8 +83,13 @@ func open(path string, tables []Table) (*Database, error) {
 		it := &internalTable{table: v, segments: loadDiskSegments(path, v.Name, v.Compare)}
 		db.tables[v.Name] = it
 	}
+
+	db.wg.Add(1)
+	go mergeDiskSegments(db)
+
 	return db, nil
 }
+
 func Create(path string, tables []Table) (*Database, error) {
 	dblock.Lock()
 	defer dblock.Unlock()
@@ -141,7 +147,12 @@ func (db *Database) Close() error {
 		return DatabaseHasOpenTransactions
 	}
 
+	db.Lock()
+	db.closing = true
+	db.Unlock()
+
 	db.wg.Wait()
+	db.Lock()
 
 	for _, table := range db.tables {
 		for _, segment := range table.segments {

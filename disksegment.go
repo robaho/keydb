@@ -110,6 +110,7 @@ func (dsi *diskSegmentIterator) Next() (key []byte, value []byte, err error) {
 		return dsi.key, dsi.data, dsi.err
 	}
 	dsi.nextKeyValue()
+	dsi.isValid = false
 	return dsi.key, dsi.data, dsi.err
 }
 
