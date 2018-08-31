@@ -205,7 +205,7 @@ func TestSegmentMerge(t *testing.T) {
 	var count = 0
 	for {
 		count0 := countFiles("test/mydb")
-		time.Sleep(1 * time.Second)
+		time.Sleep(2 * time.Second)
 		count1 := countFiles("test/mydb")
 		if count0 == count1 {
 			count = count0
@@ -213,16 +213,17 @@ func TestSegmentMerge(t *testing.T) {
 		}
 	}
 
-	db.Close()
+	db.CloseWithMerge(1)
 
 	countX := countFiles("test/mydb")
 	if countX < count {
 		count = countX
 	}
 
-	if count != 2 {
-		t.Fatal("there should only be a single segment at this point, count is ", count)
+	if count != 2 { // there are two files for every segment
+		t.Fatal("there should only be NaxSegments*2 files at this point, count is ", count)
 	}
+
 	db, err = keydb.Open("test/mydb", tables, false)
 	if err != nil {
 		t.Fatal("unable to open database", err)

@@ -16,7 +16,9 @@ type Transaction struct {
 	access *multiSegment
 }
 
-// a Transaction can only be used by a single Go routine
+// create a transaction for a database table.
+// a Transaction can only be used by a single Go routine.
+// each transaction should be completed with either Commit, or Rollback
 func (db *Database) BeginTX(table string) (*Transaction, error) {
 	db.Lock()
 	defer db.Unlock()
@@ -54,6 +56,7 @@ func (db *Database) BeginTX(table string) (*Transaction, error) {
 	return tx, nil
 }
 
+// retrieve a value from the table
 func (tx *Transaction) Get(key []byte) ([]byte, error) {
 	if !tx.open {
 		return nil, TransactionClosed
@@ -63,6 +66,8 @@ func (tx *Transaction) Get(key []byte) ([]byte, error) {
 	}
 	return tx.access.Get(key)
 }
+
+// put a value into the table. empty keys are not supported.
 func (tx *Transaction) Put(key []byte, value []byte) error {
 	if !tx.open {
 		return TransactionClosed
@@ -76,6 +81,8 @@ func (tx *Transaction) Put(key []byte, value []byte) error {
 	return tx.access.Put(key, value)
 
 }
+
+// remove a key and its value from the table. empty keys are not supported.
 func (tx *Transaction) Remove(key []byte) ([]byte, error) {
 	if !tx.open {
 		return nil, TransactionClosed
@@ -87,17 +94,21 @@ func (tx *Transaction) Remove(key []byte) ([]byte, error) {
 }
 
 // find matching record between lower and upper inclusive. lower or upper can be nil and
-// then the range is unbounded on that side
+// then the range is unbounded on that side. Using the iterator after the transaction has
+// been Commit/Rollback is not supported.
 func (tx *Transaction) Lookup(lower []byte, upper []byte) (LookupIterator, error) {
 	if !tx.open {
 		return nil, TransactionClosed
 	}
 	return tx.access.Lookup(lower, upper)
 }
+
+// persist any changes to the table. after Commit the transaction can no longer be used
 func (tx *Transaction) Commit() error {
 	tx.db.Lock()
 	delete(tx.db.transactions, tx.id)
 	table := tx.db.tables[tx.table]
+	tx.open = false
 	tx.db.Unlock()
 
 	table.Lock()
@@ -112,6 +123,8 @@ func (tx *Transaction) Commit() error {
 
 	return nil
 }
+
+// discard any changes to the table. after Rollback the transaction can no longer be used
 func (tx *Transaction) Rollback() error {
 	tx.db.Lock()
 	defer tx.db.Unlock()

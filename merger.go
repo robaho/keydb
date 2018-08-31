@@ -11,6 +11,7 @@ import (
 
 var maxSegments = 8
 
+// merge on disk segments for the database
 func mergeDiskSegments(db *Database) {
 	defer db.wg.Done()
 	//defer fmt.Println("merger complete on "+db.path)
@@ -22,11 +23,14 @@ func mergeDiskSegments(db *Database) {
 			return
 		}
 
+		// the following prevents a Close from occurring while this
+		// routine is running
+
 		db.wg.Add(1)
 
 		db.Unlock()
 
-		mergeDiskSegments0(db)
+		mergeDiskSegments0(db, maxSegments)
 
 		db.wg.Done()
 
@@ -34,13 +38,13 @@ func mergeDiskSegments(db *Database) {
 	}
 }
 
-func mergeDiskSegments0(db *Database) {
+func mergeDiskSegments0(db *Database, segmentCount int) {
 	for _, table := range db.tables {
-		mergeTableSegments(db, table)
+		mergeTableSegments(db, table, segmentCount)
 	}
 }
 
-func mergeTableSegments(db *Database, table *internalTable) {
+func mergeTableSegments(db *Database, table *internalTable, segmentCount int) {
 
 	var index = 0
 
@@ -50,13 +54,15 @@ func mergeTableSegments(db *Database, table *internalTable) {
 		segments := table.segments
 		table.Unlock()
 
-		if len(segments) <= maxSegments {
+		if len(segments) <= segmentCount {
 			return
 		}
 
 		if index+1 >= len(segments) {
 			index = 0
 		}
+
+		// ensure that only valid disk segments are merged
 
 		seg0, ok := segments[index].(*diskSegment)
 		if !ok {
