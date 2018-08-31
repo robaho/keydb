@@ -124,6 +124,29 @@ func (tx *Transaction) Commit() error {
 	return nil
 }
 
+// persist any changes to the table. waiting for disk segment to be created. note that synchronous writes are not used,
+// so that a hard OS failure could leave the database in a corrupted state. after Commit the transaction can no longer be used
+func (tx *Transaction) CommitSync() error {
+	tx.db.Lock()
+	delete(tx.db.transactions, tx.id)
+	table := tx.db.tables[tx.table]
+	tx.open = false
+	tx.db.Unlock()
+
+	table.Lock()
+
+	table.transactions--
+	table.segments = append(table.segments, tx.access.writable)
+
+	tx.db.wg.Add(1)
+
+	table.Unlock()
+
+	writeSegmentToDisk(tx.db, tx.table, tx.access.writable)
+
+	return nil
+}
+
 // discard any changes to the table. after Rollback the transaction can no longer be used
 func (tx *Transaction) Rollback() error {
 	tx.db.Lock()

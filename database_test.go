@@ -111,6 +111,56 @@ func TestCommit(t *testing.T) {
 
 }
 
+func TestCommitSync(t *testing.T) {
+	tables := []keydb.Table{keydb.Table{"main", keydb.DefaultKeyCompare{}}}
+	keydb.Remove("test/mydb")
+
+	db, err := keydb.Open("test/mydb", tables, true)
+	tx, err := db.BeginTX("main")
+	if err != nil {
+		t.Fatal("unable to create transaction", err)
+	}
+	err = tx.Put([]byte("mykey"), []byte("myvalue"))
+	if err != nil {
+		t.Fatal("unable to put key/Value", err)
+	}
+	_, err = tx.Get([]byte("mykey"))
+	if err != nil {
+		t.Fatal("unable to get by key", err)
+	}
+	err = tx.Put([]byte("mykey2"), []byte("myvalue2"))
+	if err != nil {
+		t.Fatal("unable to put key/Value", err)
+	}
+	_, err = tx.Get([]byte("mykey2"))
+	if err != nil {
+		t.Fatal("unable to get by key", err)
+	}
+
+	tx.CommitSync()
+
+	tx, err = db.BeginTX("main")
+	if err != nil {
+		t.Fatal("unable to create transaction", err)
+	}
+	_, err = tx.Get([]byte("mykey"))
+	if err != nil {
+		t.Fatal("unable to get by key", err)
+	}
+	_, err = tx.Get([]byte("mykey2"))
+	if err != nil {
+		t.Fatal("unable to get by key", err)
+	}
+
+	tx.CommitSync()
+
+	err = db.Close()
+	if err != nil {
+		t.Fatal("unable to close database", err)
+	}
+
+}
+
 func TestDatabaseIterator(t *testing.T) {
 	tables := []keydb.Table{keydb.Table{"main", keydb.DefaultKeyCompare{}}}
 	keydb.Remove("test/mydb")
