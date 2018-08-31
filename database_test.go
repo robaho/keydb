@@ -132,6 +132,10 @@ func TestCommitSync(t *testing.T) {
 	if err != nil {
 		t.Fatal("unable to put key/Value", err)
 	}
+	err = tx.Put([]byte("mykey3"), []byte("myvalue3"))
+	if err != nil {
+		t.Fatal("unable to put key/Value", err)
+	}
 	_, err = tx.Get([]byte("mykey2"))
 	if err != nil {
 		t.Fatal("unable to get by key", err)
@@ -148,6 +152,10 @@ func TestCommitSync(t *testing.T) {
 		t.Fatal("unable to get by key", err)
 	}
 	_, err = tx.Get([]byte("mykey2"))
+	if err != nil {
+		t.Fatal("unable to get by key", err)
+	}
+	_, err = tx.Get([]byte("mykey3"))
 	if err != nil {
 		t.Fatal("unable to get by key", err)
 	}

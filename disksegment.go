@@ -18,11 +18,16 @@ import (
 // dataoffset int64
 // datalen uint32 (if datalen is 0, the key is "removed"
 //
+// keylen supports compressed keys. if the high bit is set, then the key is compressed,
+// with the 8 lower bits for the key len, and the next 7 bits for the run length. a block
+// will never start with a compressed key
+//
+// the special value of 0x7000 marks the end of a block
+//
 // the data file can only be read in conjunction with the key
 // file since there is no length attribute, it is a raw appended
 // byte array with the offset and length in the key file
 //
-
 type diskSegment struct {
 	keyFile   *os.File
 	keyBlocks int64
@@ -136,9 +141,11 @@ func (dsi *diskSegmentIterator) nextKeyValue() error {
 	if dsi.finished {
 		return EndOfIterator
 	}
+	var prevKey []byte = dsi.key
+
 	for {
 		keylen := binary.LittleEndian.Uint16(dsi.buffer[dsi.bufferOffset:])
-		if keylen == 0xFFFF {
+		if keylen == endOfBlock {
 			dsi.block++
 			if dsi.block == dsi.segment.keyBlocks {
 				dsi.finished = true
@@ -156,18 +163,33 @@ func (dsi *diskSegmentIterator) nextKeyValue() error {
 				log.Fatalln("did not read blocksize, read ", n)
 			}
 			dsi.bufferOffset = 0
+			prevKey = nil
 			continue
 		}
 		if keylen == 0 {
 			panic("key length is 0")
 		}
+		var prefixLen = 0
+		var compressedLen = keylen
+
+		if (keylen & compressedBit) != 0 {
+			prefixLen = int((keylen >> 8) & maxPrefixLen)
+			compressedLen = keylen & maxCompressedLen
+		}
 		dsi.bufferOffset += 2
-		key := dsi.buffer[dsi.bufferOffset : dsi.bufferOffset+int(keylen)]
-		dsi.bufferOffset += int(keylen)
+		key := dsi.buffer[dsi.bufferOffset : dsi.bufferOffset+int(compressedLen)]
+		dsi.bufferOffset += int(compressedLen)
+
+		if prefixLen != 0 {
+			key = append(prevKey[:prefixLen], key...)
+		}
+
 		dataoffset := binary.LittleEndian.Uint64(dsi.buffer[dsi.bufferOffset:])
 		dsi.bufferOffset += 8
 		datalen := binary.LittleEndian.Uint32(dsi.buffer[dsi.bufferOffset:])
 		dsi.bufferOffset += 4
+
+		prevKey = key
 
 		if dsi.lower != nil {
 			if dsi.segment.compare.Less(key, dsi.lower) {
@@ -257,13 +279,30 @@ func scanBlock(ds *diskSegment, block int64, key []byte, buffer []byte) (offset 
 	ds.keyFile.ReadAt(buffer, block*keyBlockSize)
 
 	index := 0
+	var prevKey []byte = nil
 	for {
 		keylen := binary.LittleEndian.Uint16(buffer[index:])
-		if keylen == 0xFFFF {
+		if keylen == endOfBlock {
 			return 0, 0, KeyNotFound
 		}
-		endkey := index + 2 + int(keylen)
+
+		var compressedLen = keylen
+		var prefixLen = 0
+
+		if keylen&compressedBit != 0 {
+			prefixLen = int((keylen >> 8) & maxPrefixLen)
+			compressedLen = keylen & maxCompressedLen
+		}
+
+		endkey := index + 2 + int(compressedLen)
 		_key := buffer[index+2 : endkey]
+
+		if prefixLen > 0 {
+			_key = append(prevKey[:prefixLen], _key...)
+		}
+
+		prevKey = _key
+
 		if bytes.Equal(_key, key) {
 			offset = int64(binary.LittleEndian.Uint64(buffer[endkey:]))
 			len = binary.LittleEndian.Uint32(buffer[endkey+8:])

@@ -13,7 +13,10 @@ import (
 const keyBlockSize = 4096
 const maxKeySize = 1024
 const removed = int64(-1)
-const endOfBlock uint16 = 0xFFFF
+const endOfBlock uint16 = 0x8000
+const compressedBit uint16 = 0x8000
+const maxPrefixLen uint16 = 0xFF ^ 0x80
+const maxCompressedLen uint16 = 0xFF
 
 var emptySegment = errors.New("empty segment")
 
@@ -98,6 +101,8 @@ func writeSegmentFiles(keyFName, dataFName string, itr LookupIterator) error {
 
 	var zeros = make([]byte, keyBlockSize)
 
+	var prevKey []byte
+
 	for {
 		key, value, err := itr.Next()
 		if err != nil {
@@ -108,11 +113,11 @@ func writeSegmentFiles(keyFName, dataFName string, itr LookupIterator) error {
 		dataW.Write(value)
 		if keyBlockLen+2+keylen+8+4 >= keyBlockSize-2 { // need to leave room for 'end of block marker'
 			// key won't fit in block so move to next
-			keyW.WriteByte(0xFF)
-			keyW.WriteByte(0xFF)
+			binary.Write(keyW, binary.LittleEndian, endOfBlock)
 			keyBlockLen += 2
 			keyW.Write(zeros[:keyBlockSize-keyBlockLen])
 			keyBlockLen = 0
+			prevKey = nil
 		}
 
 		var dataLen uint32
@@ -120,6 +125,16 @@ func writeSegmentFiles(keyFName, dataFName string, itr LookupIterator) error {
 			dataLen = 0
 		} else {
 			dataLen = uint32(len(value))
+		}
+
+		// check for compressed key
+		prefixLen := calculatePrefixLen(prevKey, key)
+		prevKey = make([]byte, len(key))
+		copy(prevKey, key)
+
+		if prefixLen > 0 {
+			key = key[prefixLen:]
+			keylen = int(compressedBit | uint16(prefixLen<<8) | uint16(len(key)))
 		}
 
 		var data = []interface{}{
@@ -134,7 +149,7 @@ func writeSegmentFiles(keyFName, dataFName string, itr LookupIterator) error {
 				goto failed
 			}
 		}
-		keyBlockLen += 2 + keylen + 8 + 4
+		keyBlockLen += 2 + len(key) + 8 + 4
 		keyW.Write(buf.Bytes())
 		dataOffset += int64(dataLen)
 	}
@@ -142,8 +157,7 @@ func writeSegmentFiles(keyFName, dataFName string, itr LookupIterator) error {
 	// pad key file to block size
 	if keyBlockLen > 0 && keyBlockLen < keyBlockSize {
 		// key won't fit in block so move to next
-		keyW.WriteByte(0xFF)
-		keyW.WriteByte(0xFF)
+		binary.Write(keyW, binary.LittleEndian, endOfBlock)
 		keyBlockLen += 2
 		keyW.Write(zeros[:keyBlockSize-keyBlockLen])
 		keyBlockLen = 0
@@ -161,4 +175,23 @@ func writeSegmentFiles(keyFName, dataFName string, itr LookupIterator) error {
 failed:
 	fmt.Println("unable to write segment", err)
 	return err
+}
+
+func calculatePrefixLen(prevKey []byte, key []byte) int {
+	if prevKey == nil {
+		return 0
+	}
+	var length = 0
+	for ; length < len(prevKey) && length < len(key); length++ {
+		if prevKey[length] != key[length] {
+			break
+		}
+	}
+	if length > int(maxPrefixLen) || len(key)-length > int(maxCompressedLen) {
+		length = 0
+	}
+	//if length == len(key) {
+	//	fmt.Println("hmmm")
+	//}
+	return length
 }
