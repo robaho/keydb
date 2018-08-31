@@ -6,12 +6,12 @@ bulk insert and sequential read \< 3 microsecs
 
 uses LSM trees, see https://en.wikipedia.org/wiki/Log-structured_merge-tree
 
-limitation of max 1024 byte keys, to allow efficient on disk index searching
+limitation of max 1024 byte keys, to allow efficient on disk index searching, but has
+compressed keys which allows for very efficient storage of time series data (market tick data)in the
+same table
 
 # TODOs
 read 'keys' header key into memory for efficient binary search
-
-key compression
 
 dbdump and dbload utilities
       
