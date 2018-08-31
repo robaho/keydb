@@ -6,7 +6,6 @@ import (
 
 // auto balancing binary Tree, based on code from 'applied go', but modified for []byte key and values,
 // and range searching
-
 type Tree struct {
 	root    *node
 	Compare KeyCompare
