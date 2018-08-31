@@ -9,6 +9,7 @@ import (
 	"sync/atomic"
 )
 
+// a Database reference is obtained via Open()
 type Database struct {
 	sync.Mutex
 	tables       map[string]*internalTable
@@ -21,8 +22,11 @@ type Database struct {
 	lockfile     lockfile.Lockfile
 }
 
+// defines a table in the database
 type Table struct {
-	Name    string
+	// the name of the table, should not have any special characters
+	Name string
+	// the key comparison interface
 	Compare KeyCompare
 }
 
