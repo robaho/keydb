@@ -1,7 +1,8 @@
 package keydb
 
 import (
-	"fmt"
+	"log"
+	"strings"
 	"testing"
 )
 
@@ -10,18 +11,22 @@ func TestTree(t *testing.T) {
 	values := []string{"d", "b", "g", "g", "c", "e", "a", "h", "f", "i", "j", "l", "k"}
 	data := []string{"delta", "bravo", "golang", "golf", "charlie", "echo", "alpha", "hotel", "foxtrot", "india", "juliett", "lima", "kilo"}
 
-	tree := &Tree{Compare: DefaultKeyCompare{}}
+	tree := &Tree{Compare: StringKeyCompare{}}
 	for i := 0; i < len(values); i++ {
-		fmt.Println("insert " + values[i] + ": " + data[i])
 		tree.Insert([]byte(values[i]), []byte(data[i]))
 	}
 
-	fmt.Print("Sorted values: | ")
-
 	nodes := tree.FindNodes(nil, nil)
 
+	var prev = ""
 	for _, v := range nodes {
-		fmt.Print("(", string(v.Key), ",", string(v.Value), ") ")
+		if prev == "" {
+			prev = string(v.Key)
+		} else {
+			s := string(v.Key)
+			if strings.Compare(prev, s) >= 0 {
+				log.Fatalln("keys are out of order ", prev, s)
+			}
+		}
 	}
-	fmt.Println()
 }

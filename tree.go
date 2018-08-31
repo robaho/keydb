@@ -245,6 +245,7 @@ func (t *Tree) Remove(key []byte) (value []byte, ok bool) {
 	}
 }
 
+// a node returned by FindNodes
 type TreeEntry struct {
 	Key   []byte
 	Value []byte
