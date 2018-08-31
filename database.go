@@ -151,7 +151,8 @@ func Remove(path string) error {
 	return os.RemoveAll(path)
 }
 
-// close the database. the segments are merged until the default maxSegements is reached
+// close the database. any memory segments are persisted to disk.
+// The resulting segments are merged until the default maxSegments is reached
 func (db *Database) Close() error {
 	dblock.Lock()
 	defer dblock.Unlock()
