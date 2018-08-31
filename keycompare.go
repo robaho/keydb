@@ -21,6 +21,6 @@ func (DefaultKeyCompare) Less(a []byte, b []byte) bool {
 // key compare that handles the keys as strings
 type StringKeyCompare struct{}
 
-func (DefaultKeyCompare) Less(a []byte, b []byte) bool {
+func (StringKeyCompare) Less(a []byte, b []byte) bool {
 	return strings.Compare(string(a), string(b)) < 0
 }
