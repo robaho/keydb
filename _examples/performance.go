@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/robaho/keydb"
 	"log"
+	"math/rand"
 	"runtime"
 	"time"
 )
@@ -65,6 +66,23 @@ func main() {
 		log.Fatal("incorrect count != 1000000, count is ", count)
 	}
 	fmt.Println("scan time ", (time.Now().Sub(start)).Nanoseconds()/1000000.0, "ms")
+
+	start = time.Now()
+
+	r := rand.New(rand.NewSource(time.Now().UnixNano()))
+
+	for i := 0; i < 10000; i++ {
+		index := r.Intn(1000000)
+		_, err := tx.Get([]byte(fmt.Sprint("mykey", index)))
+		if err != nil {
+			panic(err)
+		}
+	}
+
+	fmt.Println("random access time ", ((time.Now().Sub(start)).Nanoseconds()/1000.0)/10000.0, "us per get")
+
+	tx.Rollback()
+
 	db.Close()
 
 }
