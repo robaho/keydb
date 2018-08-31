@@ -12,6 +12,8 @@ limitation of max 1024 byte keys, to allow efficient on disk index searching
 read 'keys' header key into memory for efficient binary search
 
 key compression
+
+dbdump and dbload utilities
       
 # How To Use
 
