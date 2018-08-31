@@ -65,7 +65,7 @@ func TestLargeDiskSegment(t *testing.T) {
 	os.RemoveAll("test")
 	os.Mkdir("test", os.ModePerm)
 	m := newMemorySegment(DefaultKeyCompare{})
-	for i := 0; i < 100000; i++ {
+	for i := 0; i < 1000000; i++ {
 		m.Put([]byte(fmt.Sprint("mykey", i)), []byte(fmt.Sprint("myvalue", i)))
 	}
 	itr, err := m.Lookup(nil, nil)
@@ -83,7 +83,7 @@ func TestLargeDiskSegment(t *testing.T) {
 		}
 		count++
 	}
-	if count != 100000 {
+	if count != 1000000 {
 		t.Fatal("incorrect count", count)
 	}
 
@@ -108,7 +108,7 @@ func TestLargeDiskSegment(t *testing.T) {
 	if !bytes.Equal(value, []byte("myvalue3")) {
 		t.Fatal("incorrect values")
 	}
-	value, err = ds.Get([]byte("mykey200000"))
+	value, err = ds.Get([]byte("mykey1000000"))
 	if err == nil {
 		t.Fatal("key should not be found")
 	}

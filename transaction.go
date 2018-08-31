@@ -3,6 +3,7 @@ package keydb
 import (
 	"errors"
 	"sync/atomic"
+	"time"
 )
 
 var txID uint64
@@ -17,8 +18,8 @@ type Transaction struct {
 
 // a Transaction can only be used by a single Go routine
 func (db *Database) BeginTX(table string) (*Transaction, error) {
-	dblock.Lock()
-	defer dblock.Unlock()
+	db.Lock()
+	defer db.Unlock()
 
 	if db.closing {
 		return nil, DatabaseClosed
@@ -28,6 +29,18 @@ func (db *Database) BeginTX(table string) (*Transaction, error) {
 	if !ok {
 		return nil, errors.New("unknown table")
 	}
+
+	for { // wait to start transaction if table has too many segments
+		if len(it.segments) > maxSegments*10 {
+			db.Unlock()
+			time.Sleep(100 * time.Millisecond)
+			db.Lock()
+		} else {
+			break
+		}
+	}
+
+	it.transactions++
 
 	tx := &Transaction{db: db, table: table, open: true}
 	tx.id = atomic.AddUint64(&txID, 1)
@@ -57,6 +70,9 @@ func (tx *Transaction) Put(key []byte, value []byte) error {
 	if len(key) > 1024 {
 		return KeyTooLong
 	}
+	if len(key) == 0 {
+		return EmptyKey
+	}
 	return tx.access.Put(key, value)
 
 }
@@ -80,15 +96,15 @@ func (tx *Transaction) Lookup(lower []byte, upper []byte) (LookupIterator, error
 }
 func (tx *Transaction) Commit() error {
 	tx.db.Lock()
-	defer tx.db.Unlock()
-
 	delete(tx.db.transactions, tx.id)
-
 	table := tx.db.tables[tx.table]
+	tx.db.Unlock()
 
+	table.Lock()
+	defer table.Unlock()
+
+	table.transactions--
 	table.segments = append(table.segments, tx.access.writable)
-
-	tx.db.tables[tx.table] = table
 
 	tx.db.wg.Add(1)
 
@@ -104,6 +120,9 @@ func (tx *Transaction) Rollback() error {
 	tx.open = false
 
 	delete(tx.db.transactions, tx.id)
+
+	table := tx.db.tables[tx.table]
+	table.transactions--
 
 	return nil
 }

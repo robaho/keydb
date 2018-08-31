@@ -28,8 +28,9 @@ type Table struct {
 
 type internalTable struct {
 	sync.Mutex
-	table    Table
-	segments []segment
+	table        Table
+	segments     []segment
+	transactions int
 }
 
 type LookupIterator interface {
@@ -154,7 +155,8 @@ func (db *Database) Close() error {
 	db.Unlock()
 
 	db.wg.Wait()
-	db.Lock()
+
+	mergeDiskSegments0(db)
 
 	for _, table := range db.tables {
 		for _, segment := range table.segments {

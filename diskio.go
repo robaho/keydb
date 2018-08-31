@@ -13,6 +13,7 @@ import (
 const keyBlockSize = 4096
 const maxKeySize = 1024
 const removed = int64(-1)
+const endOfBlock uint16 = 0xFFFF
 
 var emptySegment = errors.New("empty segment")
 
@@ -105,7 +106,7 @@ func writeSegmentFiles(keyFName, dataFName string, itr LookupIterator) error {
 		keyCount++
 		keylen := len(key)
 		dataW.Write(value)
-		if keyBlockLen+len(key)+8+4+2 >= keyBlockSize-2 { // need to leave room for 'end of block marker'
+		if keyBlockLen+2+keylen+8+4 >= keyBlockSize-2 { // need to leave room for 'end of block marker'
 			// key won't fit in block so move to next
 			keyW.WriteByte(0xFF)
 			keyW.WriteByte(0xFF)
@@ -139,12 +140,12 @@ func writeSegmentFiles(keyFName, dataFName string, itr LookupIterator) error {
 	}
 
 	// pad key file to block size
-	if keyBlockLen < keyBlockSize {
+	if keyBlockLen > 0 && keyBlockLen < keyBlockSize {
 		// key won't fit in block so move to next
 		keyW.WriteByte(0xFF)
 		keyW.WriteByte(0xFF)
 		keyBlockLen += 2
-		keyW.Write(zeros[:4096-keyBlockLen])
+		keyW.Write(zeros[:keyBlockSize-keyBlockLen])
 		keyBlockLen = 0
 	}
 

@@ -5,6 +5,7 @@ import "errors"
 var KeyNotFound = errors.New("key not found")
 var KeyRemoved = errors.New("key removed")
 var KeyTooLong = errors.New("key too long, max 1024")
+var EmptyKey = errors.New("key is empty")
 var TransactionClosed = errors.New("transaction closed")
 var DatabaseClosed = errors.New("database closed")
 var DatabaseInUse = errors.New("database in use")

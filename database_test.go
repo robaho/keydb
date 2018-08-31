@@ -215,8 +215,30 @@ func TestSegmentMerge(t *testing.T) {
 
 	db.Close()
 
+	countX := countFiles("test/mydb")
+	if countX < count {
+		count = countX
+	}
+
 	if count != 2 {
-		t.Fatal("there should only be a single segment at this point")
+		t.Fatal("there should only be a single segment at this point, count is ", count)
+	}
+	db, err = keydb.Open("test/mydb", tables, false)
+	if err != nil {
+		t.Fatal("unable to open database", err)
+	}
+	tx, err := db.BeginTX("main")
+	itr, err := tx.Lookup(nil, nil)
+	count = 0
+	for {
+		_, _, err = itr.Next()
+		if err != nil {
+			break
+		}
+		count++
+	}
+	if count != 100 {
+		t.Fatal("incorrect count, should be 100, is ", count)
 	}
 }
 

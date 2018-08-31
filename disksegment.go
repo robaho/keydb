@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/binary"
 	"io/ioutil"
+	"log"
 	"os"
 	"path/filepath"
 	"sort"
@@ -51,10 +52,19 @@ func loadDiskSegments(directory string, table string, compare KeyCompare) []segm
 	}
 	segments := []segment{}
 	for _, file := range files {
-		if strings.HasPrefix(file.Name(), table) {
+		if strings.HasSuffix(file.Name(), ".tmp") {
+			panic("tmp files in " + directory)
+		}
+		if strings.HasPrefix(file.Name(), table+".") {
+			index := strings.Index(file.Name(), ".keys.")
+			if index < 0 {
+				continue
+
+			}
+			base := file.Name()[:index]
 			id := getSegmentID(file.Name())
-			keyFilename := filepath.Join(directory, table+".keys."+strconv.FormatUint(id, 10))
-			dataFilename := filepath.Join(directory, table+".data."+strconv.FormatUint(id, 10))
+			keyFilename := filepath.Join(directory, base+".keys."+strconv.FormatUint(id, 10))
+			dataFilename := filepath.Join(directory, base+".data."+strconv.FormatUint(id, 10))
 			segments = append(segments, newDiskSegment(keyFilename, dataFilename, compare))
 		}
 	}
@@ -138,9 +148,18 @@ func (dsi *diskSegmentIterator) nextKeyValue() error {
 				dsi.isValid = true
 				return dsi.err
 			}
-			dsi.segment.keyFile.ReadAt(dsi.buffer, dsi.block*keyBlockSize)
+			n, err := dsi.segment.keyFile.ReadAt(dsi.buffer, dsi.block*keyBlockSize)
+			if err != nil {
+				panic(err)
+			}
+			if n != keyBlockSize {
+				log.Fatalln("did not read blocksize, read ", n)
+			}
 			dsi.bufferOffset = 0
 			continue
+		}
+		if keylen == 0 {
+			panic("key length is 0")
 		}
 		dsi.bufferOffset += 2
 		key := dsi.buffer[dsi.bufferOffset : dsi.bufferOffset+int(keylen)]
@@ -274,7 +293,13 @@ func (ds *diskSegment) Lookup(lower []byte, upper []byte) (LookupIterator, error
 		}
 		block = startBlock
 	}
-	ds.keyFile.ReadAt(buffer, block*keyBlockSize)
+	n, err := ds.keyFile.ReadAt(buffer, block*keyBlockSize)
+	if err != nil {
+		panic(err)
+	}
+	if n != keyBlockSize {
+		log.Fatal("did not read block size ", n)
+	}
 	return &diskSegmentIterator{segment: ds, lower: lower, upper: upper, buffer: buffer, block: block}, nil
 }
 

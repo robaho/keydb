@@ -40,7 +40,8 @@ func (msi *multiSegmentIterator) Next() (key []byte, value []byte, err error) {
 		}
 
 		if lowest == nil || msi.compare.Less(key, lowest) {
-			lowest = key
+			lowest = make([]byte, len(key))
+			copy(lowest, key)
 			currentIndex = i
 		}
 	}
@@ -53,6 +54,9 @@ func (msi *multiSegmentIterator) Next() (key []byte, value []byte, err error) {
 
 	// advance all of the iterators past the current
 	for i := len(msi.iterators) - 1; i >= 0; i-- {
+		if i == currentIndex {
+			continue
+		}
 		iterator := msi.iterators[i]
 		for {
 			key, err := iterator.peekKey()

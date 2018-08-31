@@ -29,13 +29,42 @@ func main() {
 		tx.Put([]byte(fmt.Sprint("mykey", i)), []byte(fmt.Sprint("myvalue", i)))
 		if i%10000 == 0 {
 			tx.Commit()
-		}
-		tx, err = db.BeginTX("main")
-		if err != nil {
-			panic(err)
+			tx, err = db.BeginTX("main")
+			if err != nil {
+				panic(err)
+			}
 		}
 	}
-	fmt.Println("time ", (time.Now().Sub(start)).Nanoseconds()/1000000.0, "ms")
+	tx.Commit()
+
+	fmt.Println("insert time ", (time.Now().Sub(start)).Nanoseconds()/1000000.0, "ms")
+	err = db.Close()
+	if err != nil {
+		panic(err)
+	}
+
+	db, err = keydb.Open("test/mydb", tables, false)
+	if err != nil {
+		log.Fatal("unable to create database", err)
+	}
+	start = time.Now()
+	tx, err = db.BeginTX("main")
+	if err != nil {
+		panic(err)
+	}
+	itr, err := tx.Lookup(nil, nil)
+	count := 0
+	for {
+		_, _, err = itr.Next()
+		if err != nil {
+			break
+		}
+		count++
+	}
+	if count != 1000000 {
+		log.Fatal("incorrect count != 1000000, count is ", count)
+	}
+	fmt.Println("scan time ", (time.Now().Sub(start)).Nanoseconds()/1000000.0, "ms")
 	db.Close()
 
 }
