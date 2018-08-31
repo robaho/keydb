@@ -43,9 +43,11 @@ type LookupIterator interface {
 
 var dblock sync.RWMutex
 
-// open the database. the database can only be opened by a single process, but the *Database
-// reference can be shared across Go routines.
+// open a database. The database can only be opened by a single process, but the *Database
+// reference can be shared across Go routines. The path is a directory name.
 // if createIfNeeded is true, them if the db doesn't exist it will be created
+// Additional tables can be added on subsequent opens, but there is no current way to delete a table,
+// except for deleting the table related files from the directory
 func Open(path string, tables []Table, createIfNeeded bool) (*Database, error) {
 	dblock.Lock()
 	defer dblock.Unlock()
