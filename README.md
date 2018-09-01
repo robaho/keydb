@@ -11,7 +11,8 @@ compressed keys which allows for very efficient storage of time series data (mar
 same table
 
 # TODOs
-read 'keys' header key into memory for efficient binary search
+
+make some settings configurable
 
 dbdump and dbload utilities
       
