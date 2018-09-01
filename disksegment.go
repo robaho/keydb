@@ -201,12 +201,19 @@ func (dsi *diskSegmentIterator) nextKeyValue() error {
 		if keylen == 0 {
 			panic("key length is 0")
 		}
-		var prefixLen = 0
+		var prefixLen uint16 = 0
 		var compressedLen = keylen
 
 		if (keylen & compressedBit) != 0 {
-			prefixLen = int((keylen >> 8) & maxPrefixLen)
+			prefixLen = (keylen >> 8) & maxPrefixLen
 			compressedLen = keylen & maxCompressedLen
+			if prefixLen > maxPrefixLen || compressedLen > maxCompressedLen {
+				log.Fatal("database is corrupt, invalid prefix/compressed length,", prefixLen, compressedLen)
+			}
+		} else {
+			if keylen > maxKeySize {
+				log.Fatal("database is corrupt, key > 1024 in ", dsi.segment.keyFile.Name())
+			}
 		}
 		dsi.bufferOffset += 2
 		key := dsi.buffer[dsi.bufferOffset : dsi.bufferOffset+int(compressedLen)]
