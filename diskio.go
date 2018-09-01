@@ -85,14 +85,12 @@ func writeSegmentFiles(keyFName, dataFName string, itr LookupIterator) ([][]byte
 
 	keyF, err := os.OpenFile(keyFName, os.O_CREATE|os.O_WRONLY, os.ModePerm)
 	if err != nil {
-		fmt.Println("unable to create key segments", err)
 		return nil, err
 	}
 	defer keyF.Close()
 
 	dataF, err := os.OpenFile(dataFName, os.O_CREATE|os.O_WRONLY, os.ModePerm)
 	if err != nil {
-		fmt.Println("unable to create data file", err)
 		return nil, err
 	}
 	defer dataF.Close()
@@ -188,7 +186,6 @@ func writeSegmentFiles(keyFName, dataFName string, itr LookupIterator) ([][]byte
 	return keyIndex, nil
 
 failed:
-	fmt.Println("unable to write segment", err)
 	return nil, err
 }
 
