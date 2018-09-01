@@ -21,14 +21,14 @@ const maxCompressedLen uint16 = 0xFF
 var emptySegment = errors.New("empty segment")
 
 // called to write a memory segment to disk
-func writeSegmentToDisk(db *Database, table string, seg segment) {
+func writeSegmentToDisk(db *Database, table string, seg segment) error {
 	defer db.wg.Done() // allows database to close with no writers pending
 
 	var err error
 
 	itr, err := seg.Lookup(nil, nil)
 	if err != nil {
-		return
+		return err
 	}
 
 	id := db.nextSegmentID()
@@ -38,7 +38,7 @@ func writeSegmentToDisk(db *Database, table string, seg segment) {
 
 	ds, err := writeAndLoadSegment(keyFilename, dataFilename, itr, seg.getKeyCompare())
 	if err != nil && err != emptySegment {
-		panic(err)
+		return err
 	}
 
 	db.tables[table].Lock()
@@ -56,6 +56,8 @@ func writeSegmentToDisk(db *Database, table string, seg segment) {
 	}
 
 	db.tables[table].segments = segments
+
+	return nil
 }
 
 func writeAndLoadSegment(keyFilename, dataFilename string, itr LookupIterator, compare KeyCompare) (segment, error) {
