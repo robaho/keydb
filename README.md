@@ -10,12 +10,13 @@ limitation of max 1024 byte keys, to allow efficient on disk index searching, bu
 compressed keys which allows for very efficient storage of time series data (market tick data)in the
 same table
 
+use the dbdump and dbload utilities to save/restore databases to a single file, but just zipping up the directory works as
+well...
+      
 # TODOs
 
 make some settings configurable
 
-dbdump and dbload utilities
-      
 # How To Use
 
 	tables := []keydb.Table{keydb.Table{"main", keydb.DefaultKeyCompare{}}}
