@@ -2,7 +2,7 @@
 <project version="4">
   <component name="ProjectModuleManager">
     <modules>
-      <module fileurl="file://$PROJECT_DIR$/keydb.iml" filepath="$PROJECT_DIR$/keydb.iml" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/keydb.iml" filepath="$PROJECT_DIR$/.idea/keydb.iml" />
     </modules>
   </component>
 </project>
