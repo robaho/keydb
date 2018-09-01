@@ -35,7 +35,7 @@ make some settings configurable
 	}
     err = tx.Commit()
     if err != nil {
-        t.Fatal("unable to commit traabsaction", err)
+        t.Fatal("unable to commit transaction", err)
     }
     err = db.Close()
     if err != nil {
