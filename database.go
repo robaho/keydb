@@ -1,10 +1,11 @@
 package keydb
 
 import (
-	"errors"
 	"github.com/nightlyone/lockfile"
+	"io/ioutil"
 	"os"
 	"path/filepath"
+	"regexp"
 	"sync"
 	"sync/atomic"
 )
@@ -67,14 +68,9 @@ func open(path string, tables []Table) (*Database, error) {
 
 	path = filepath.Clean(path)
 
-	fi, err := os.Stat(path)
+	err := IsValidDatabase(path)
 	if err != nil {
-		return nil, NoDatabaseFound
-	}
-	switch mode := fi.Mode(); {
-	case mode.IsDir():
-	case mode.IsRegular():
-		return nil, NoDatabaseFound
+		return nil, err
 	}
 
 	abs, err := filepath.Abs(path + "/lockfile")
@@ -124,7 +120,7 @@ func Remove(path string) error {
 
 	path = filepath.Clean(path)
 
-	fi, err := os.Stat(path)
+	err := IsValidDatabase(path)
 	if err != nil {
 		return err
 	}
@@ -142,13 +138,37 @@ func Remove(path string) error {
 		return DatabaseInUse
 	}
 
-	switch mode := fi.Mode(); {
-	case mode.IsDir():
-	case mode.IsRegular():
-		return errors.New("path is not a directory")
+	return os.RemoveAll(path)
+}
+
+// returns nil if the path points to a valid database or empty directory
+func IsValidDatabase(path string) error {
+	fi, err := os.Stat(path)
+	if err != nil {
+		return NoDatabaseFound
 	}
 
-	return os.RemoveAll(path)
+	if !fi.IsDir() {
+		return NotADirectory
+	}
+
+	infos, err := ioutil.ReadDir(path)
+	if err != nil {
+		return err
+	}
+
+	for _, f := range infos {
+		if "lockfile" == f.Name() {
+			continue
+		}
+		if f.Name() == filepath.Base(path) {
+			continue
+		}
+		if matched, _ := regexp.Match(".*\\.(keys|data)\\..*", []byte(f.Name())); !matched {
+			return NotValidDatabase
+		}
+	}
+	return nil
 }
 
 // close the database. any memory segments are persisted to disk.
