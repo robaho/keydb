@@ -34,6 +34,9 @@ type diskSegment struct {
 	dataFile  *os.File
 	compare   KeyCompare
 	id        uint64
+	// nil for segments loaded during initial open
+	// otherwise holds the key for every keyIndexInterval block
+	keyIndex [][]byte
 }
 
 type diskSegmentIterator struct {
@@ -70,7 +73,7 @@ func loadDiskSegments(directory string, table string, compare KeyCompare) []segm
 			id := getSegmentID(file.Name())
 			keyFilename := filepath.Join(directory, base+".keys."+strconv.FormatUint(id, 10))
 			dataFilename := filepath.Join(directory, base+".data."+strconv.FormatUint(id, 10))
-			segments = append(segments, newDiskSegment(keyFilename, dataFilename, compare))
+			segments = append(segments, newDiskSegment(keyFilename, dataFilename, compare, nil)) // don't have keyIndex
 		}
 	}
 	sort.Slice(segments, func(i, j int) bool {
@@ -91,7 +94,7 @@ func getSegmentID(filename string) uint64 {
 	return 0
 }
 
-func newDiskSegment(keyFilename, dataFilename string, compare KeyCompare) segment {
+func newDiskSegment(keyFilename, dataFilename string, compare KeyCompare, keyIndex [][]byte) segment {
 
 	segmentID := getSegmentID(keyFilename)
 
@@ -116,7 +119,36 @@ func newDiskSegment(keyFilename, dataFilename string, compare KeyCompare) segmen
 	ds.compare = compare
 	ds.id = segmentID
 
+	if keyIndex == nil {
+		// TODO maybe load this in the background
+		keyIndex = loadKeyIndex(kf, ds.keyBlocks)
+	}
+
+	ds.keyIndex = keyIndex
+
 	return ds
+}
+
+func loadKeyIndex(kf *os.File, keyBlocks int64) [][]byte {
+	buffer := make([]byte, keyBlockSize)
+	keyIndex := make([][]byte, 0)
+	// build key index
+	var block int64
+	for block = 0; block < keyBlocks; block += int64(keyIndexInterval) {
+		_, err := kf.ReadAt(buffer, block*keyBlockSize)
+		if err != nil {
+			keyIndex = nil
+			break
+		}
+		keylen := binary.LittleEndian.Uint16(buffer)
+		if keylen == endOfBlock {
+			break
+		}
+		keycopy := make([]byte, keylen)
+		copy(keycopy, buffer[2:2+keylen])
+		keyIndex = append(keyIndex, keycopy)
+	}
+	return keyIndex
 }
 
 func (dsi *diskSegmentIterator) Next() (key []byte, value []byte, err error) {
@@ -241,10 +273,32 @@ func (ds *diskSegment) Get(key []byte) ([]byte, error) {
 	return buffer, nil
 }
 
-func binarySearch(ds *diskSegment, key []byte) (offset int64, len uint32, err error) {
+func binarySearch(ds *diskSegment, key []byte) (offset int64, length uint32, err error) {
 	buffer := make([]byte, keyBlockSize)
 
-	block, err := binarySearch0(ds, 0, ds.keyBlocks-1, key, buffer)
+	var lowblock int64 = 0
+	highblock := ds.keyBlocks - 1
+
+	if ds.keyIndex != nil { // we have memory index, so narrow block range down
+		index := sort.Search(len(ds.keyIndex), func(i int) bool {
+			return ds.compare.Less(key, ds.keyIndex[i])
+		})
+
+		if index == 0 {
+			return 0, 0, KeyNotFound
+		}
+
+		index--
+
+		lowblock = int64(index * keyIndexInterval)
+		highblock = lowblock + int64(keyIndexInterval)
+
+		if highblock >= ds.keyBlocks {
+			highblock = ds.keyBlocks - 1
+		}
+	}
+
+	block, err := binarySearch0(ds, lowblock, highblock, key, buffer)
 	if err != nil {
 		return 0, 0, err
 	}

@@ -17,6 +17,7 @@ const endOfBlock uint16 = 0x8000
 const compressedBit uint16 = 0x8000
 const maxPrefixLen uint16 = 0xFF ^ 0x80
 const maxCompressedLen uint16 = 0xFF
+const keyIndexInterval int = 2 // record every 16th block
 
 var emptySegment = errors.New("empty segment")
 
@@ -65,7 +66,7 @@ func writeAndLoadSegment(keyFilename, dataFilename string, itr LookupIterator, c
 	keyFilenameTmp := keyFilename + ".tmp"
 	dataFilenameTmp := dataFilename + ".tmp"
 
-	err := writeSegmentFiles(keyFilenameTmp, dataFilenameTmp, itr)
+	keyIndex, err := writeSegmentFiles(keyFilenameTmp, dataFilenameTmp, itr)
 	if err != nil {
 		os.Remove(keyFilenameTmp)
 		os.Remove(dataFilenameTmp)
@@ -75,22 +76,24 @@ func writeAndLoadSegment(keyFilename, dataFilename string, itr LookupIterator, c
 	os.Rename(keyFilenameTmp, keyFilename)
 	os.Rename(dataFilenameTmp, dataFilename)
 
-	return newDiskSegment(keyFilename, dataFilename, compare), nil
+	return newDiskSegment(keyFilename, dataFilename, compare, keyIndex), nil
 }
 
-func writeSegmentFiles(keyFName, dataFName string, itr LookupIterator) error {
+func writeSegmentFiles(keyFName, dataFName string, itr LookupIterator) ([][]byte, error) {
+
+	var keyIndex [][]byte
 
 	keyF, err := os.OpenFile(keyFName, os.O_CREATE|os.O_WRONLY, os.ModePerm)
 	if err != nil {
 		fmt.Println("unable to create key segments", err)
-		return err
+		return nil, err
 	}
 	defer keyF.Close()
 
 	dataF, err := os.OpenFile(dataFName, os.O_CREATE|os.O_WRONLY, os.ModePerm)
 	if err != nil {
 		fmt.Println("unable to create data file", err)
-		return err
+		return nil, err
 	}
 	defer dataF.Close()
 
@@ -100,6 +103,7 @@ func writeSegmentFiles(keyFName, dataFName string, itr LookupIterator) error {
 	var dataOffset int64
 	var keyBlockLen int
 	var keyCount = 0
+	var block = 0
 
 	var zeros = make([]byte, keyBlockSize)
 
@@ -120,6 +124,15 @@ func writeSegmentFiles(keyFName, dataFName string, itr LookupIterator) error {
 			keyW.Write(zeros[:keyBlockSize-keyBlockLen])
 			keyBlockLen = 0
 			prevKey = nil
+		}
+
+		if keyBlockLen == 0 {
+			if block%keyIndexInterval == 0 {
+				keycopy := make([]byte, len(key))
+				copy(keycopy, key)
+				keyIndex = append(keyIndex, keycopy)
+			}
+			block++
 		}
 
 		var dataLen uint32
@@ -169,14 +182,14 @@ func writeSegmentFiles(keyFName, dataFName string, itr LookupIterator) error {
 	dataW.Flush()
 
 	if keyCount == 0 {
-		return emptySegment
+		return nil, emptySegment
 	}
 
-	return nil
+	return keyIndex, nil
 
 failed:
 	fmt.Println("unable to write segment", err)
-	return err
+	return nil, err
 }
 
 func calculatePrefixLen(prevKey []byte, key []byte) int {
