@@ -71,7 +71,7 @@ func main() {
 
 	r := rand.New(rand.NewSource(time.Now().UnixNano()))
 
-	for i := 0; i < 10000; i++ {
+	for i := 0; i < 100000; i++ {
 		index := r.Intn(1000000)
 		_, err := tx.Get([]byte(fmt.Sprint("mykey", index)))
 		if err != nil {
@@ -79,7 +79,7 @@ func main() {
 		}
 	}
 
-	fmt.Println("random access time ", ((time.Now().Sub(start)).Nanoseconds()/1000.0)/10000.0, "us per get")
+	fmt.Println("random access time ", ((time.Now().Sub(start)).Nanoseconds()/1000.0)/100000.0, "us per get")
 
 	tx.Rollback()
 
