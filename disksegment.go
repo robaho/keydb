@@ -303,7 +303,7 @@ func binarySearch(ds *diskSegment, key []byte) (offset int64, length uint32, err
 		return 0, 0, err
 	}
 	// just scan 2 blocks
-	offset, len, err = scanBlock(ds, block, key, buffer)
+	offset, length, err = scanBlock(ds, block, key, buffer)
 	if err == nil {
 		return
 	}
