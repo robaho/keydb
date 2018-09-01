@@ -142,9 +142,9 @@ func (tx *Transaction) CommitSync() error {
 
 	table.Unlock()
 
-	writeSegmentToDisk(tx.db, tx.table, tx.access.writable)
+	err := writeSegmentToDisk(tx.db, tx.table, tx.access.writable)
 
-	return nil
+	return err
 }
 
 // discard any changes to the table. after Rollback the transaction can no longer be used
