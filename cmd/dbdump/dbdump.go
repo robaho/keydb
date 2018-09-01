@@ -61,15 +61,15 @@ func main() {
 		log.Fatal(err)
 	}
 
-	fmt.Fprintf(w, "<db path=\"%s\" strings=%t\n>", html.EscapeString(dbpath), *asStrings)
+	fmt.Fprintf(w, "<db path=\"%s\" strings=\"%t\">\n", html.EscapeString(dbpath), *asStrings)
 	fmt.Fprintln(w, "\t<tables>")
 	for _, v := range tables {
-		fmt.Fprintf(w, "\t\t<table name=\"%s\"</table>\n", v.Name)
+		fmt.Fprintf(w, "\t\t<table name=\"%s\"></table>\n", v.Name)
 	}
 	fmt.Fprintln(w, "\t</tables>")
 	for _, v := range tables {
 		name := v.Name
-		fmt.Fprintln(w, "\t<tabledata name=\"", name, "\">")
+		fmt.Fprintf(w, "\t<tabledata name=\"%s\">\n", name)
 		tx, err := db.BeginTX(name)
 		if err != nil {
 			log.Fatal("unable to open tx on ", v.Name, " ", err)
@@ -81,9 +81,9 @@ func main() {
 		for {
 			if key, value, err := itr.Next(); err == nil {
 				if *asStrings {
-					fmt.Fprintf(w, "\t\t<key>%s</key> <value>%s</value>\n", string(key), string(value))
+					fmt.Fprintf(w, "\t\t<entry><key>%s</key> <value>%s</value></entry>\n", html.EscapeString(string(key)), html.EscapeString(string(value)))
 				} else {
-					fmt.Fprintln(w, "\t\t<key>", hex.EncodeToString(key), "</key>", "<value>", hex.EncodeToString(value), "</value>")
+					fmt.Fprintln(w, "\t\t<entry><key>", hex.EncodeToString(key), "</key>", "<value>", hex.EncodeToString(value), "</value></entry>")
 				}
 			} else {
 				if err == keydb.EndOfIterator {

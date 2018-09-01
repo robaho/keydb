@@ -5,7 +5,6 @@ import (
 	"encoding/hex"
 	"encoding/xml"
 	"flag"
-	"fmt"
 	"github.com/robaho/keydb"
 	"log"
 	"os"
@@ -17,8 +16,8 @@ import (
 func main() {
 	path := flag.String("path", "", "set the database path")
 	in := flag.String("in", "dbdump.xml", "set the input file")
-	remove := flag.Bool("remove", true, "remove existing db")
-	create := flag.Bool("create", true, "create if doesn't exist")
+	remove := flag.Bool("remove", true, "remove existing db if it exists")
+	create := flag.Bool("create", true, "create database if it doesn't exist")
 
 	flag.Parse()
 
@@ -31,7 +30,7 @@ func main() {
 
 	infile, err := os.Open(*in)
 	if err != nil {
-		log.Fatal("unable to open output file ", err)
+		log.Fatal("unable to open input file ", err)
 	}
 	defer infile.Close()
 
@@ -53,9 +52,9 @@ func main() {
 	decoder := xml.NewDecoder(r)
 	var tx *keydb.Transaction
 
-	type KeyValueElement struct {
-		Key   string
-		Value string
+	type EntryElement struct {
+		Key   string `xml:"key"`
+		Value string `xml:"value"`
 	}
 
 	var inElement string
@@ -83,12 +82,10 @@ func main() {
 				if err != nil {
 					log.Fatal(err)
 				}
-			} else if inElement == "key" {
-				e := KeyValueElement{}
+			} else if inElement == "entry" {
+				e := EntryElement{}
 
-				decoder.DecodeElement(e, t.(*xml.StartElement))
-
-				fmt.Println("kv ", e)
+				decoder.DecodeElement(&e, &se)
 
 				if asStrings {
 					err := tx.Put([]byte(e.Key), []byte(e.Value))
@@ -123,6 +120,11 @@ func main() {
 		default:
 		}
 
+	}
+
+	err = db.Close()
+	if err != nil {
+		panic(err)
 	}
 
 }
