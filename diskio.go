@@ -202,8 +202,5 @@ func calculatePrefixLen(prevKey []byte, key []byte) int {
 	if length > int(maxPrefixLen) || len(key)-length > int(maxCompressedLen) {
 		length = 0
 	}
-	//if length == len(key) {
-	//	fmt.Println("hmmm")
-	//}
 	return length
 }
