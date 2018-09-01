@@ -2,6 +2,7 @@ package keydb
 
 import (
 	"errors"
+	"log"
 	"sync/atomic"
 	"time"
 )
@@ -119,7 +120,13 @@ func (tx *Transaction) Commit() error {
 
 	tx.db.wg.Add(1)
 
-	go writeSegmentToDisk(tx.db, tx.table, tx.access.writable)
+	go func() {
+		err := writeSegmentToDisk(tx.db, tx.table, tx.access.writable)
+		if err != nil {
+			// TODO maybe use a callback listener for async error reporting
+			log.Fatalln("unable to write commit to disk", err)
+		}
+	}()
 
 	return nil
 }
