@@ -18,7 +18,7 @@ func TestMerger(t *testing.T) {
 		m2.Put([]byte(fmt.Sprint("mykey", i)), []byte(fmt.Sprint("myvalue", i)))
 	}
 
-	merged, err := mergeDiskSegments1("test", "testtable", 0, m1, m2)
+	merged, err := mergeDiskSegments1("test", "testtable", 0, []segment{m1, m2})
 	if err != nil {
 		t.Fatal(err)
 	}

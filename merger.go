@@ -58,6 +58,11 @@ func mergeTableSegments(db *Database, table *internalTable, segmentCount int) {
 			return
 		}
 
+		maxMergeSize := len(segments) / 2
+		if maxMergeSize < 4 {
+			maxMergeSize = 4
+		}
+
 		// ensure that only valid disk segments are merged
 
 		mergable := make([]*diskSegment, 0)
@@ -67,7 +72,7 @@ func mergeTableSegments(db *Database, table *internalTable, segmentCount int) {
 
 			if ok {
 				mergable = append(mergable, ds)
-				if len(mergable) == len(segments)/2 {
+				if len(mergable) == maxMergeSize {
 					break
 				}
 			} else {
@@ -76,7 +81,9 @@ func mergeTableSegments(db *Database, table *internalTable, segmentCount int) {
 		}
 
 		if len(mergable) < 2 {
-			return
+			index = 0
+			time.Sleep(100 * time.Millisecond)
+			continue
 		}
 
 		id := mergable[len(mergable)-1].id
