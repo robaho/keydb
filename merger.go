@@ -58,24 +58,31 @@ func mergeTableSegments(db *Database, table *internalTable, segmentCount int) {
 			return
 		}
 
-		if index+1 >= len(segments) {
-			index = 0
-		}
-
 		// ensure that only valid disk segments are merged
 
-		seg0, ok := segments[index].(*diskSegment)
-		if !ok {
-			index = 0
-			continue
-		}
-		seg1, ok := segments[index+1].(*diskSegment)
-		if !ok {
-			index = 0
-			continue
+		mergable := make([]*diskSegment, 0)
+
+		for _, s := range segments[index:] {
+			ds, ok := s.(*diskSegment)
+
+			if ok {
+				mergable = append(mergable, ds)
+				if len(mergable) == len(segments)/2 {
+					break
+				}
+			} else {
+				break
+			}
 		}
 
-		newseg, err := mergeDiskSegments1(db.path, table.table.Name, seg1.id, seg0, seg1)
+		if len(mergable) < 2 {
+			return
+		}
+
+		id := mergable[len(mergable)-1].id
+		segments = segments[index : index+len(mergable)]
+
+		newseg, err := mergeDiskSegments1(db.path, table.table.Name, id, segments)
 		if err != nil {
 			panic(err)
 		}
@@ -87,32 +94,38 @@ func mergeTableSegments(db *Database, table *internalTable, segmentCount int) {
 			table.Lock()
 		}
 
-		seg0.keyFile.Close()
-		seg0.dataFile.Close()
-		seg1.keyFile.Close()
-		seg1.dataFile.Close()
-
-		os.Remove(seg0.keyFile.Name())
-		os.Remove(seg0.dataFile.Name())
-		os.Remove(seg1.keyFile.Name())
-		os.Remove(seg1.dataFile.Name())
-
 		segments = table.segments
-		if newseg != nil && len(segments) > 1 && seg0 == segments[index] && seg1 == segments[index+1] {
-			table.segments = append(append(segments[:index], newseg), segments[index+2:]...)
-		} else {
-			log.Fatalln("unexpected segment change,", seg0, segments[index], seg1, segments[index+1])
+
+		for i, s := range mergable {
+			if s != segments[i+index] {
+				log.Fatalln("unexpected segment change,", s, segments[i])
+			}
 		}
 
-		table.Unlock()
+		for _, s := range mergable {
+			s.keyFile.Close()
+			s.dataFile.Close()
+			os.Remove(s.keyFile.Name())
+			os.Remove(s.dataFile.Name())
+		}
 
-		index += 2
+		newsegments := []segment{}
+
+		newsegments = append(newsegments, segments[:index]...)
+		newsegments = append(newsegments, newseg)
+		newsegments = append(newsegments, segments[index+len(mergable):]...)
+
+		table.segments = newsegments
+
+		index += 1
+		table.Unlock()
+		time.Sleep(100 * time.Millisecond)
 	}
 }
 
 var mergeSeq uint64
 
-func mergeDiskSegments1(dbpath string, table string, id uint64, seg0 segment, seg1 segment) (segment, error) {
+func mergeDiskSegments1(dbpath string, table string, id uint64, segments []segment) (segment, error) {
 
 	base := filepath.Join(dbpath, table+".merged.")
 
@@ -124,12 +137,14 @@ func mergeDiskSegments1(dbpath string, table string, id uint64, seg0 segment, se
 	keyFilename := base + "." + sseq + ".keys." + sid
 	dataFilename := base + "." + sseq + ".data." + sid
 
-	ms := newMultiSegment([]segment{seg0, seg1}, nil, seg0.getKeyCompare())
+	compare := segments[0].getKeyCompare()
+
+	ms := newMultiSegment(segments, nil, compare)
 	itr, err := ms.Lookup(nil, nil)
 	if err != nil {
 		panic(err)
 	}
 
-	return writeAndLoadSegment(keyFilename, dataFilename, itr, seg0.getKeyCompare())
+	return writeAndLoadSegment(keyFilename, dataFilename, itr, compare)
 
 }
