@@ -39,7 +39,9 @@ func main() {
 	tx.Commit()
 
 	fmt.Println("insert time ", (time.Now().Sub(start)).Nanoseconds()/1000000.0, "ms")
+	start = time.Now()
 	err = db.Close()
+	fmt.Println("close time ", (time.Now().Sub(start)).Nanoseconds()/1000000.0, "ms")
 	if err != nil {
 		panic(err)
 	}
