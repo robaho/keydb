@@ -80,30 +80,22 @@ func mergeTableSegments(db *Database, table *internalTable, segmentCount int) {
 			panic(err)
 		}
 
-		for {
-			table.Lock()
-			if table.transactions > 0 {
-				goto tryAgain
-			}
-
-			seg0.keyFile.Close()
-			seg0.dataFile.Close()
-			seg1.keyFile.Close()
-			seg1.dataFile.Close()
-
-			os.Remove(seg0.keyFile.Name())
-			os.Remove(seg0.dataFile.Name())
-			os.Remove(seg1.keyFile.Name())
-			os.Remove(seg1.dataFile.Name())
-
-			//fmt.Println("merged segments", seg0.keyFile.Name(), seg1.keyFile.Name())
-
-			break
-
-		tryAgain:
+		table.Lock()
+		for table.transactions > 0 {
 			table.Unlock()
 			time.Sleep(100 * time.Millisecond)
+			table.Lock()
 		}
+
+		seg0.keyFile.Close()
+		seg0.dataFile.Close()
+		seg1.keyFile.Close()
+		seg1.dataFile.Close()
+
+		os.Remove(seg0.keyFile.Name())
+		os.Remove(seg0.dataFile.Name())
+		os.Remove(seg1.keyFile.Name())
+		os.Remove(seg1.dataFile.Name())
 
 		segments = table.segments
 		if newseg != nil && len(segments) > 1 && seg0 == segments[index] && seg1 == segments[index+1] {
