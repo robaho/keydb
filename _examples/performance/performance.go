@@ -46,12 +46,26 @@ func main() {
 		panic(err)
 	}
 
+	testRead(tables)
+
 	db, err = keydb.Open("test/mydb", tables, false)
 	if err != nil {
 		log.Fatal("unable to open database", err)
 	}
 	start = time.Now()
-	tx, err = db.BeginTX("main")
+	db.CloseWithMerge(1)
+	fmt.Println("close with merge 1 time ", (time.Now().Sub(start)).Nanoseconds()/1000000.0, "ms")
+
+	testRead(tables)
+}
+
+func testRead(tables []keydb.Table) {
+	db, err := keydb.Open("test/mydb", tables, false)
+	if err != nil {
+		log.Fatal("unable to open database", err)
+	}
+	start := time.Now()
+	tx, err := db.BeginTX("main")
 	if err != nil {
 		panic(err)
 	}
@@ -86,6 +100,8 @@ func main() {
 
 	r := rand.New(rand.NewSource(time.Now().UnixNano()))
 
+	start = time.Now()
+
 	for i := 0; i < 100000; i++ {
 		index := r.Intn(1000000)
 		_, err := tx.Get([]byte(fmt.Sprintf("mykey%7d", index)))
@@ -99,5 +115,4 @@ func main() {
 	tx.Rollback()
 
 	db.Close()
-
 }
