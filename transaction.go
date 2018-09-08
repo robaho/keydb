@@ -2,7 +2,6 @@ package keydb
 
 import (
 	"errors"
-	"log"
 	"sync/atomic"
 	"time"
 )
@@ -23,6 +22,10 @@ type Transaction struct {
 func (db *Database) BeginTX(table string) (*Transaction, error) {
 	db.Lock()
 	defer db.Unlock()
+
+	if db.err != nil {
+		return nil, db.err
+	}
 
 	if db.closing {
 		return nil, DatabaseClosed
@@ -123,8 +126,9 @@ func (tx *Transaction) Commit() error {
 	go func() {
 		err := writeSegmentToDisk(tx.db, tx.table, tx.access.writable)
 		if err != nil {
-			// TODO maybe use a callback listener for async error reporting
-			log.Fatalln("unable to write commit to disk", err)
+			tx.db.Lock()
+			tx.db.err = errors.New("transaction failed: " + err.Error())
+			tx.db.Unlock()
 		}
 	}()
 
@@ -138,7 +142,14 @@ func (tx *Transaction) CommitSync() error {
 	delete(tx.db.transactions, tx.id)
 	table := tx.db.tables[tx.table]
 	tx.open = false
+
+	err := tx.db.err
+
 	tx.db.Unlock()
+
+	if err != nil {
+		return err
+	}
 
 	table.Lock()
 
@@ -149,7 +160,7 @@ func (tx *Transaction) CommitSync() error {
 
 	table.Unlock()
 
-	err := writeSegmentToDisk(tx.db, tx.table, tx.access.writable)
+	err = writeSegmentToDisk(tx.db, tx.table, tx.access.writable)
 
 	return err
 }

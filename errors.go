@@ -15,3 +15,13 @@ var NotADirectory = errors.New("path is not a directory")
 var NotValidDatabase = errors.New("path is not a valid database")
 var EndOfIterator = errors.New("end of iterator")
 var ReadOnlySegment = errors.New("read only segment")
+
+// returns the first non-nil error
+func errn(errs ...error) error {
+	for _, v := range errs {
+		if v != nil {
+			return v
+		}
+	}
+	return nil
+}

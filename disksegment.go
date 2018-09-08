@@ -3,8 +3,9 @@ package keydb
 import (
 	"bytes"
 	"encoding/binary"
+	"errors"
+	"fmt"
 	"io/ioutil"
-	"log"
 	"os"
 	"path/filepath"
 	"sort"
@@ -173,7 +174,7 @@ func (dsi *diskSegmentIterator) nextKeyValue() error {
 	if dsi.finished {
 		return EndOfIterator
 	}
-	var prevKey []byte = dsi.key
+	var prevKey = dsi.key
 
 	for {
 		keylen := binary.LittleEndian.Uint16(dsi.buffer[dsi.bufferOffset:])
@@ -189,18 +190,19 @@ func (dsi *diskSegmentIterator) nextKeyValue() error {
 			}
 			n, err := dsi.segment.keyFile.ReadAt(dsi.buffer, dsi.block*keyBlockSize)
 			if err != nil {
-				panic(err)
+				return err
 			}
 			if n != keyBlockSize {
-				log.Fatalln("did not read blocksize, read ", n)
+				return errors.New(fmt.Sprint("did not read blocksize, read ", n))
 			}
 			dsi.bufferOffset = 0
 			prevKey = nil
 			continue
 		}
 		if keylen == 0 {
-			panic("key length is 0")
+			return errors.New(fmt.Sprint("stored key length is 0"))
 		}
+
 		var prefixLen uint16 = 0
 		var compressedLen = keylen
 
@@ -208,11 +210,11 @@ func (dsi *diskSegmentIterator) nextKeyValue() error {
 			prefixLen = (keylen >> 8) & maxPrefixLen
 			compressedLen = keylen & maxCompressedLen
 			if prefixLen > maxPrefixLen || compressedLen > maxCompressedLen {
-				log.Fatal("database is corrupt, invalid prefix/compressed length,", prefixLen, compressedLen)
+				return errors.New(fmt.Sprint("database is corrupt, invalid prefix/compressed length,", prefixLen, compressedLen))
 			}
 		} else {
 			if keylen > maxKeySize {
-				log.Fatal("database is corrupt, key > 1024 in ", dsi.segment.keyFile.Name())
+				return errors.New(fmt.Sprint("database is corrupt, key > 1024 in ", dsi.segment.keyFile.Name()))
 			}
 		}
 		dsi.bufferOffset += 2
@@ -336,8 +338,12 @@ func binarySearch0(ds *diskSegment, lowblock int64, highBlock int64, key []byte,
 		return binarySearch0(ds, block, highBlock, key, buffer)
 	}
 }
+
 func scanBlock(ds *diskSegment, block int64, key []byte, buffer []byte) (offset int64, len uint32, err error) {
-	ds.keyFile.ReadAt(buffer, block*keyBlockSize)
+	_, err = ds.keyFile.ReadAt(buffer, block*keyBlockSize)
+	if err != nil {
+		return 0, 0, err
+	}
 
 	index := 0
 	var prevKey []byte = nil
@@ -395,15 +401,16 @@ func (ds *diskSegment) Lookup(lower []byte, upper []byte) (LookupIterator, error
 	}
 	n, err := ds.keyFile.ReadAt(buffer, block*keyBlockSize)
 	if err != nil {
-		panic(err)
+		return nil, err
 	}
 	if n != keyBlockSize {
-		log.Fatal("did not read block size ", n)
+		return nil, errors.New(fmt.Sprint("did not read block size ", n))
 	}
 	return &diskSegmentIterator{segment: ds, lower: lower, upper: upper, buffer: buffer, block: block}, nil
 }
 
-func (ds *diskSegment) Close() {
-	ds.keyFile.Close()
-	ds.dataFile.Close()
+func (ds *diskSegment) Close() error {
+	err0 := ds.keyFile.Close()
+	err1 := ds.dataFile.Close()
+	return errn(err0, err1)
 }

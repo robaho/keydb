@@ -21,6 +21,9 @@ type Database struct {
 	wg           sync.WaitGroup
 	nextSegID    uint64
 	lockfile     lockfile.Lockfile
+
+	// if non-nil an asynchronous error has occurred, and the database cannot be used
+	err error
 }
 
 // defines a table in the database
@@ -189,7 +192,7 @@ func (db *Database) Close() error {
 
 	db.wg.Wait()
 
-	mergeDiskSegments0(db, maxSegments)
+	err := mergeDiskSegments0(db, maxSegments)
 
 	for _, table := range db.tables {
 		for _, segment := range table.segments {
@@ -200,7 +203,7 @@ func (db *Database) Close() error {
 	db.lockfile.Unlock()
 	db.open = false
 
-	return nil
+	return err
 }
 
 // close the database with control of the segment count. if segmentCount is 0, then
@@ -210,6 +213,9 @@ func (db *Database) CloseWithMerge(segmentCount int) error {
 	defer dblock.Unlock()
 	if !db.open {
 		return DatabaseClosed
+	}
+	if db.err != nil {
+		return db.err
 	}
 	if len(db.transactions) > 0 {
 		return DatabaseHasOpenTransactions

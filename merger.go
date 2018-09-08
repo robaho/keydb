@@ -1,7 +1,8 @@
 package keydb
 
 import (
-	"log"
+	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -18,7 +19,7 @@ func mergeDiskSegments(db *Database) {
 
 	for {
 		db.Lock()
-		if db.closing {
+		if db.closing || db.err != nil {
 			db.Unlock()
 			return
 		}
@@ -30,7 +31,12 @@ func mergeDiskSegments(db *Database) {
 
 		db.Unlock()
 
-		mergeDiskSegments0(db, maxSegments)
+		err := mergeDiskSegments0(db, maxSegments)
+		if err != nil {
+			db.Lock()
+			db.err = errors.New("unable to merge segments: " + err.Error())
+			db.Unlock()
+		}
 
 		db.wg.Done()
 
@@ -38,13 +44,17 @@ func mergeDiskSegments(db *Database) {
 	}
 }
 
-func mergeDiskSegments0(db *Database, segmentCount int) {
+func mergeDiskSegments0(db *Database, segmentCount int) error {
 	for _, table := range db.tables {
-		mergeTableSegments(db, table, segmentCount)
+		err := mergeTableSegments(db, table, segmentCount)
+		if err != nil {
+			return err
+		}
 	}
+	return nil
 }
 
-func mergeTableSegments(db *Database, table *internalTable, segmentCount int) {
+func mergeTableSegments(db *Database, table *internalTable, segmentCount int) error {
 
 	var index = 0
 
@@ -55,7 +65,7 @@ func mergeTableSegments(db *Database, table *internalTable, segmentCount int) {
 		table.Unlock()
 
 		if len(segments) <= segmentCount {
-			return
+			return nil
 		}
 
 		maxMergeSize := len(segments) / 2
@@ -91,7 +101,7 @@ func mergeTableSegments(db *Database, table *internalTable, segmentCount int) {
 
 		newseg, err := mergeDiskSegments1(db.path, table.table.Name, id, segments)
 		if err != nil {
-			panic(err)
+			return err
 		}
 
 		table.Lock()
@@ -105,18 +115,23 @@ func mergeTableSegments(db *Database, table *internalTable, segmentCount int) {
 
 		for i, s := range mergable {
 			if s != segments[i+index] {
-				log.Fatalln("unexpected segment change,", s, segments[i])
+				return errors.New(fmt.Sprint("unexpected segment change,", s, segments[i]))
 			}
 		}
 
 		for _, s := range mergable {
-			s.keyFile.Close()
-			s.dataFile.Close()
-			os.Remove(s.keyFile.Name())
-			os.Remove(s.dataFile.Name())
+			err0 := s.keyFile.Close()
+			err1 := s.dataFile.Close()
+			err2 := os.Remove(s.keyFile.Name())
+			err3 := os.Remove(s.dataFile.Name())
+
+			err := errn(err0, err1, err2, err3)
+			if err != nil {
+				return err
+			}
 		}
 
-		newsegments := []segment{}
+		newsegments := make([]segment, 0)
 
 		newsegments = append(newsegments, segments[:index]...)
 		newsegments = append(newsegments, newseg)
@@ -149,7 +164,7 @@ func mergeDiskSegments1(dbpath string, table string, id uint64, segments []segme
 	ms := newMultiSegment(segments, nil, compare)
 	itr, err := ms.Lookup(nil, nil)
 	if err != nil {
-		panic(err)
+		return nil, err
 	}
 
 	return writeAndLoadSegment(keyFilename, dataFilename, itr, compare)
