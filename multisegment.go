@@ -1,5 +1,7 @@
 package keydb
 
+// multiSegment presents multiple segments as a single segment. The segments are ordered, since the different segments
+// may contain the same key with different values (due to an update or a remove)
 type multiSegment struct {
 	segments []segment
 	writable segment
