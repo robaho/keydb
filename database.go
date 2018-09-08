@@ -116,7 +116,7 @@ func create(path string, tables []Table) (*Database, error) {
 }
 
 // remove the database, deleting all files. the caller must be able to
-// gain exclusive access to the database
+// gain exclusive multi to the database
 func Remove(path string) error {
 	dblock.Lock()
 	defer dblock.Unlock()

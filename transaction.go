@@ -9,11 +9,11 @@ import (
 var txID uint64
 
 type Transaction struct {
-	table  string
-	open   bool
-	db     *Database
-	id     uint64
-	access *multiSegment
+	table string
+	open  bool
+	db    *Database
+	id    uint64
+	multi *multiSegment
 }
 
 // create a transaction for a database table.
@@ -53,7 +53,7 @@ func (db *Database) BeginTX(table string) (*Transaction, error) {
 
 	memory := newMemorySegment(it.table.Compare)
 
-	tx.access = &multiSegment{append(it.segments, memory), memory, it.table.Compare}
+	tx.multi = newMultiSegment(append(it.segments, memory), memory, it.table.Compare)
 
 	db.transactions[tx.id] = tx
 
@@ -68,7 +68,7 @@ func (tx *Transaction) Get(key []byte) ([]byte, error) {
 	if len(key) > 1024 {
 		return nil, KeyTooLong
 	}
-	return tx.access.Get(key)
+	return tx.multi.Get(key)
 }
 
 // put a value into the table. empty keys are not supported.
@@ -82,7 +82,7 @@ func (tx *Transaction) Put(key []byte, value []byte) error {
 	if len(key) == 0 {
 		return EmptyKey
 	}
-	return tx.access.Put(key, value)
+	return tx.multi.Put(key, value)
 
 }
 
@@ -94,7 +94,7 @@ func (tx *Transaction) Remove(key []byte) ([]byte, error) {
 	if len(key) > 1024 {
 		return nil, KeyTooLong
 	}
-	return tx.access.Remove(key)
+	return tx.multi.Remove(key)
 }
 
 // find matching record between lower and upper inclusive. lower or upper can be nil and
@@ -104,7 +104,7 @@ func (tx *Transaction) Lookup(lower []byte, upper []byte) (LookupIterator, error
 	if !tx.open {
 		return nil, TransactionClosed
 	}
-	return tx.access.Lookup(lower, upper)
+	return tx.multi.Lookup(lower, upper)
 }
 
 // persist any changes to the table. after Commit the transaction can no longer be used
@@ -119,12 +119,12 @@ func (tx *Transaction) Commit() error {
 	defer table.Unlock()
 
 	table.transactions--
-	table.segments = append(table.segments, tx.access.writable)
+	table.segments = append(table.segments, tx.multi.writable)
 
 	tx.db.wg.Add(1)
 
 	go func() {
-		err := writeSegmentToDisk(tx.db, tx.table, tx.access.writable)
+		err := writeSegmentToDisk(tx.db, tx.table, tx.multi.writable)
 		if err != nil {
 			tx.db.Lock()
 			tx.db.err = errors.New("transaction failed: " + err.Error())
@@ -154,13 +154,13 @@ func (tx *Transaction) CommitSync() error {
 	table.Lock()
 
 	table.transactions--
-	table.segments = append(table.segments, tx.access.writable)
+	table.segments = append(table.segments, tx.multi.writable)
 
 	tx.db.wg.Add(1)
 
 	table.Unlock()
 
-	err = writeSegmentToDisk(tx.db, tx.table, tx.access.writable)
+	err = writeSegmentToDisk(tx.db, tx.table, tx.multi.writable)
 
 	return err
 }
@@ -170,7 +170,7 @@ func (tx *Transaction) Rollback() error {
 	tx.db.Lock()
 	defer tx.db.Unlock()
 
-	tx.access = nil
+	tx.multi = nil
 	tx.open = false
 
 	delete(tx.db.transactions, tx.id)

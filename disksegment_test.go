@@ -126,3 +126,31 @@ func TestLargeDiskSegment(t *testing.T) {
 	}
 
 }
+
+func TestEmptySegment(t *testing.T) {
+	os.RemoveAll("test")
+	os.Mkdir("test", os.ModePerm)
+	m := newMemorySegment(DefaultKeyCompare{})
+	m.Put([]byte("mykey"), []byte("myvalue"))
+	m.Remove([]byte("mykey"))
+	itr, err := m.Lookup(nil, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	ds, err := writeAndLoadSegment("test/keyfile", "test/datafile", itr, m.getKeyCompare())
+
+	itr, err = ds.Lookup(nil, nil)
+	count := 0
+	for {
+		_, _, err := itr.Next()
+		if err != nil {
+			break
+		}
+		count++
+	}
+	// the segment must return the empty array for the key, so that removes are accurate in the case of multi segment multi
+	if count != 1 {
+		t.Fatal("incorrect count", count)
+	}
+}

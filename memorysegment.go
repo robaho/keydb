@@ -45,19 +45,19 @@ func (ms *memorySegment) Remove(key []byte) ([]byte, error) {
 }
 
 func (ms *memorySegment) Lookup(lower []byte, upper []byte) (LookupIterator, error) {
-	return &entrySetIterator{results: ms.tree.FindNodes(lower, upper), index: 0}, nil
+	return &memorySegmentIterator{results: ms.tree.FindNodes(lower, upper), index: 0}, nil
 }
 
 func (ms *memorySegment) Close() error {
 	return nil
 }
 
-type entrySetIterator struct {
+type memorySegmentIterator struct {
 	results []TreeEntry
 	index   int
 }
 
-func (es *entrySetIterator) Next() (key []byte, value []byte, err error) {
+func (es *memorySegmentIterator) Next() (key []byte, value []byte, err error) {
 	if es.index >= len(es.results) {
 		return nil, nil, EndOfIterator
 	}
@@ -66,7 +66,7 @@ func (es *entrySetIterator) Next() (key []byte, value []byte, err error) {
 	es.index++
 	return key, value, nil
 }
-func (es *entrySetIterator) peekKey() ([]byte, error) {
+func (es *memorySegmentIterator) peekKey() ([]byte, error) {
 	if es.index >= len(es.results) {
 		return nil, EndOfIterator
 	}

@@ -19,6 +19,8 @@ well...
 
 make some settings configurable
 
+purge removed key/value, it currently stores an empty []byte 
+
 # How To Use
 
 	tables := []keydb.Table{keydb.Table{"main", keydb.DefaultKeyCompare{}}}
