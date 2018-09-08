@@ -9,6 +9,8 @@ import (
 	"time"
 )
 
+const nr = 1000000
+
 func main() {
 
 	runtime.GOMAXPROCS(4)
@@ -26,7 +28,7 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	for i := 0; i < 1000000; i++ {
+	for i := 0; i < nr; i++ {
 		tx.Put([]byte(fmt.Sprintf("mykey%7d", i)), []byte(fmt.Sprint("myvalue", i)))
 		if i%10000 == 0 {
 			tx.Commit()
@@ -38,10 +40,16 @@ func main() {
 	}
 	tx.Commit()
 
-	fmt.Println("insert time ", (time.Now().Sub(start)).Nanoseconds()/1000000.0, "ms")
+	end := time.Now()
+	duration := end.Sub(start).Nanoseconds()
+
+	fmt.Println("insert time ", nr, "records = ", duration/1000000.0, "ms, usec per op ", (duration/1000)/nr)
 	start = time.Now()
 	err = db.Close()
-	fmt.Println("close time ", (time.Now().Sub(start)).Nanoseconds()/1000000.0, "ms")
+	end = time.Now()
+	duration = end.Sub(start).Nanoseconds()
+
+	fmt.Println("close time ", duration/1000000.0, "ms")
 	if err != nil {
 		panic(err)
 	}
@@ -54,7 +62,10 @@ func main() {
 	}
 	start = time.Now()
 	db.CloseWithMerge(1)
-	fmt.Println("close with merge 1 time ", (time.Now().Sub(start)).Nanoseconds()/1000000.0, "ms")
+	end = time.Now()
+	duration = end.Sub(start).Nanoseconds()
+
+	fmt.Println("close with merge 1 time ", duration/1000000.0, "ms")
 
 	testRead(tables)
 }
@@ -78,10 +89,13 @@ func testRead(tables []keydb.Table) {
 		}
 		count++
 	}
-	if count != 1000000 {
-		log.Fatal("incorrect count != 1000000, count is ", count)
+	if count != nr {
+		log.Fatal("incorrect count != ", nr, ", count is ", count)
 	}
-	fmt.Println("scan time ", (time.Now().Sub(start)).Nanoseconds()/1000000.0, "ms")
+	end := time.Now()
+	duration := end.Sub(start).Nanoseconds()
+
+	fmt.Println("scan time ", duration/1000000.0, "ms, usec per op ", (duration/1000)/nr)
 
 	start = time.Now()
 	itr, err = tx.Lookup([]byte("mykey 300000"), []byte("mykey 799999"))
@@ -96,21 +110,26 @@ func testRead(tables []keydb.Table) {
 	if count != 500000 {
 		log.Fatal("incorrect count != 500000, count is ", count)
 	}
-	fmt.Println("scan 50% records ", (time.Now().Sub(start)).Nanoseconds()/1000000.0, "ms")
+	end = time.Now()
+	duration = end.Sub(start).Nanoseconds()
+
+	fmt.Println("scan time 50% ", duration/1000000.0, "ms, usec per op ", (duration/1000)/500000)
 
 	r := rand.New(rand.NewSource(time.Now().UnixNano()))
 
 	start = time.Now()
 
-	for i := 0; i < 100000; i++ {
-		index := r.Intn(1000000)
+	for i := 0; i < nr/10; i++ {
+		index := r.Intn(nr / 10)
 		_, err := tx.Get([]byte(fmt.Sprintf("mykey%7d", index)))
 		if err != nil {
 			panic(err)
 		}
 	}
+	end = time.Now()
+	duration = end.Sub(start).Nanoseconds()
 
-	fmt.Println("random access time ", ((time.Now().Sub(start)).Nanoseconds()/1000.0)/100000.0, "us per get")
+	fmt.Println("random access time ", (duration/1000.0)/int64(nr/10.0), "us per get")
 
 	tx.Rollback()
 
