@@ -2,13 +2,15 @@
 
 high performance key value database written in Go
 
-bulk insert and sequential read \< 3 microsecs 
+bulk insert and sequential read \< 3 micro secs
+
+random access read of disk based record, approx. 13 us
 
 uses LSM trees, see https://en.wikipedia.org/wiki/Log-structured_merge-tree
 
 limitation of max 1024 byte keys, to allow efficient on disk index searching, but has
-compressed keys which allows for very efficient storage of time series data (market tick data)in the
-same table
+compressed keys which allows for very efficient storage of time series data
+(market tick data) in the same table
 
 use the dbdump and dbload utilities to save/restore databases to a single file, but just zipping up the directory works as
 well...
