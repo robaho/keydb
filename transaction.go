@@ -9,11 +9,27 @@ import (
 var txID uint64
 
 type Transaction struct {
-	table string
-	open  bool
-	db    *Database
-	id    uint64
-	multi *multiSegment
+	table  string
+	open   bool
+	db     *Database
+	id     uint64
+	multi  *multiSegment
+	memory segment
+}
+
+type transactionLookup struct {
+	LookupIterator
+}
+
+// skip removed records
+func (tl *transactionLookup) Next() (key, value []byte, err error) {
+	for {
+		key, value, err = tl.LookupIterator.Next()
+		if value == nil && err == nil {
+			continue
+		}
+		return
+	}
 }
 
 // create a transaction for a database table.
@@ -51,9 +67,9 @@ func (db *Database) BeginTX(table string) (*Transaction, error) {
 	tx := &Transaction{db: db, table: table, open: true}
 	tx.id = atomic.AddUint64(&txID, 1)
 
-	memory := newMemorySegment(it.table.Compare)
+	tx.memory = newMemorySegment(it.table.Compare)
 
-	tx.multi = newMultiSegment(append(it.segments, memory), memory, it.table.Compare)
+	tx.multi = newMultiSegment(append(it.segments, tx.memory), it.table.Compare)
 
 	db.transactions[tx.id] = tx
 
@@ -61,14 +77,21 @@ func (db *Database) BeginTX(table string) (*Transaction, error) {
 }
 
 // retrieve a value from the table
-func (tx *Transaction) Get(key []byte) ([]byte, error) {
+func (tx *Transaction) Get(key []byte) (value []byte, err error) {
 	if !tx.open {
 		return nil, TransactionClosed
 	}
 	if len(key) > 1024 {
 		return nil, KeyTooLong
 	}
-	return tx.multi.Get(key)
+	value, err = tx.multi.Get(key)
+	if err != nil {
+		return nil, err
+	}
+	if value == nil {
+		return nil, KeyNotFound
+	}
+	return
 }
 
 // put a value into the table. empty keys are not supported.
@@ -82,8 +105,7 @@ func (tx *Transaction) Put(key []byte, value []byte) error {
 	if len(key) == 0 {
 		return EmptyKey
 	}
-	return tx.multi.Put(key, value)
-
+	return tx.memory.Put(key, value)
 }
 
 // remove a key and its value from the table. empty keys are not supported.
@@ -94,7 +116,12 @@ func (tx *Transaction) Remove(key []byte) ([]byte, error) {
 	if len(key) > 1024 {
 		return nil, KeyTooLong
 	}
-	return tx.multi.Remove(key)
+	value, err := tx.Get(key)
+	if err != nil {
+		return nil, err
+	}
+	tx.memory.Remove(key)
+	return value, nil
 }
 
 // find matching record between lower and upper inclusive. lower or upper can be nil and
@@ -104,7 +131,11 @@ func (tx *Transaction) Lookup(lower []byte, upper []byte) (LookupIterator, error
 	if !tx.open {
 		return nil, TransactionClosed
 	}
-	return tx.multi.Lookup(lower, upper)
+	itr, err := tx.multi.Lookup(lower, upper)
+	if err != nil {
+		return nil, err
+	}
+	return &transactionLookup{itr}, nil
 }
 
 // persist any changes to the table. after Commit the transaction can no longer be used
@@ -119,12 +150,12 @@ func (tx *Transaction) Commit() error {
 	defer table.Unlock()
 
 	table.transactions--
-	table.segments = append(table.segments, tx.multi.writable)
+	table.segments = append(table.segments, tx.memory)
 
 	tx.db.wg.Add(1)
 
 	go func() {
-		err := writeSegmentToDisk(tx.db, tx.table, tx.multi.writable)
+		err := writeSegmentToDisk(tx.db, tx.table, tx.memory)
 		if err != nil {
 			tx.db.Lock()
 			tx.db.err = errors.New("transaction failed: " + err.Error())
@@ -154,13 +185,13 @@ func (tx *Transaction) CommitSync() error {
 	table.Lock()
 
 	table.transactions--
-	table.segments = append(table.segments, tx.multi.writable)
+	table.segments = append(table.segments, tx.memory)
 
 	tx.db.wg.Add(1)
 
 	table.Unlock()
 
-	err = writeSegmentToDisk(tx.db, tx.table, tx.multi.writable)
+	err = writeSegmentToDisk(tx.db, tx.table, tx.memory)
 
 	return err
 }

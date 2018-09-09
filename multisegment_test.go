@@ -15,7 +15,7 @@ func TestMultiSegment(t *testing.T) {
 		m2.Put([]byte(fmt.Sprint("mykey", i)), []byte(fmt.Sprint("myvalue", i)))
 	}
 
-	ms := newMultiSegment([]segment{m1, m2}, nil, m1.getKeyCompare())
+	ms := newMultiSegment([]segment{m1, m2}, m1.getKeyCompare())
 	itr, err := ms.Lookup(nil, nil)
 	if err != nil {
 		t.Fatal(err)
@@ -44,7 +44,7 @@ func TestMultiSegment2(t *testing.T) {
 		m2.Put([]byte(fmt.Sprint("mykey", i)), []byte(fmt.Sprint("myvalue", i)))
 	}
 
-	ms := newMultiSegment([]segment{m1, m2}, nil, m1.getKeyCompare())
+	ms := newMultiSegment([]segment{m1, m2}, m1.getKeyCompare())
 	itr, err := ms.Lookup(nil, nil)
 	if err != nil {
 		t.Fatal(err)

@@ -21,6 +21,9 @@ func TestDiskSegment(t *testing.T) {
 	ds, err := writeAndLoadSegment("test/keyfile", "test/datafile", itr, m.getKeyCompare())
 
 	itr, err = ds.Lookup(nil, nil)
+	if err != nil {
+		t.Fatal("unable to lookup", err)
+	}
 	count := 0
 	for {
 		_, _, err := itr.Next()

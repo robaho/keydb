@@ -54,6 +54,8 @@ type diskSegmentIterator struct {
 	finished     bool
 }
 
+var keyRemoved = errors.New("key removed")
+
 func loadDiskSegments(directory string, table string, compare KeyCompare) []segment {
 	files, err := ioutil.ReadDir(directory)
 	if err != nil {
@@ -193,37 +195,22 @@ func (dsi *diskSegmentIterator) nextKeyValue() error {
 				return err
 			}
 			if n != keyBlockSize {
-				return errors.New(fmt.Sprint("did not read blocksize, read ", n))
+				return errors.New(fmt.Sprint("did not read block size, read ", n))
 			}
 			dsi.bufferOffset = 0
 			prevKey = nil
 			continue
 		}
-		if keylen == 0 {
-			return errors.New(fmt.Sprint("stored key length is 0"))
+		prefixLen, compressedLen, err := decodeKeyLen(keylen)
+		if err != nil {
+			return err
 		}
 
-		var prefixLen uint16 = 0
-		var compressedLen = keylen
-
-		if (keylen & compressedBit) != 0 {
-			prefixLen = (keylen >> 8) & maxPrefixLen
-			compressedLen = keylen & maxCompressedLen
-			if prefixLen > maxPrefixLen || compressedLen > maxCompressedLen {
-				return errors.New(fmt.Sprint("database is corrupt, invalid prefix/compressed length,", prefixLen, compressedLen))
-			}
-		} else {
-			if keylen > maxKeySize {
-				return errors.New(fmt.Sprint("database is corrupt, key > 1024 in ", dsi.segment.keyFile.Name()))
-			}
-		}
 		dsi.bufferOffset += 2
 		key := dsi.buffer[dsi.bufferOffset : dsi.bufferOffset+int(compressedLen)]
 		dsi.bufferOffset += int(compressedLen)
 
-		if prefixLen != 0 {
-			key = append(prevKey[:prefixLen], key...)
-		}
+		key = decodeKey(key, prevKey, prefixLen)
 
 		dataoffset := binary.LittleEndian.Uint64(dsi.buffer[dsi.bufferOffset:])
 		dsi.bufferOffset += 8
@@ -254,8 +241,13 @@ func (dsi *diskSegmentIterator) nextKeyValue() error {
 			}
 		}
 	found:
-		dsi.data = make([]byte, datalen)
-		_, err := dsi.segment.dataFile.ReadAt(dsi.data, int64(dataoffset))
+
+		if datalen == removedKeyLen {
+			dsi.data = nil
+		} else {
+			dsi.data = make([]byte, datalen)
+			_, err = dsi.segment.dataFile.ReadAt(dsi.data, int64(dataoffset))
+		}
 		dsi.key = key
 		dsi.isValid = true
 		return err
@@ -271,6 +263,9 @@ func (ds *diskSegment) Put(key []byte, value []byte) error {
 
 func (ds *diskSegment) Get(key []byte) ([]byte, error) {
 	offset, len, err := binarySearch(ds, key)
+	if err == keyRemoved {
+		return nil, nil
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -313,7 +308,7 @@ func binarySearch(ds *diskSegment, key []byte) (offset int64, length uint32, err
 	}
 	// just scan 2 blocks
 	offset, length, err = scanBlock(ds, block, key, buffer)
-	if err == nil {
+	if err == nil || err == keyRemoved {
 		return
 	}
 	return scanBlock(ds, block+1, key, buffer)
@@ -373,8 +368,8 @@ func scanBlock(ds *diskSegment, block int64, key []byte, buffer []byte) (offset 
 		if bytes.Equal(_key, key) {
 			offset = int64(binary.LittleEndian.Uint64(buffer[endkey:]))
 			len = binary.LittleEndian.Uint32(buffer[endkey+8:])
-			if len == 0 {
-				err = KeyRemoved
+			if len == removedKeyLen {
+				err = keyRemoved
 			}
 			return
 		}

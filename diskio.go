@@ -12,12 +12,12 @@ import (
 
 const keyBlockSize = 4096
 const maxKeySize = 1024
-const removed = int64(-1)
 const endOfBlock uint16 = 0x8000
 const compressedBit uint16 = 0x8000
 const maxPrefixLen uint16 = 0xFF ^ 0x80
 const maxCompressedLen uint16 = 0xFF
 const keyIndexInterval int = 2 // record every 16th block
+const removedKeyLen = 0xFFFFFFFF
 
 var emptySegment = errors.New("empty segment")
 
@@ -113,9 +113,9 @@ func writeSegmentFiles(keyFName, dataFName string, itr LookupIterator) ([][]byte
 			break
 		}
 		keyCount++
-		keylen := len(key)
+
 		dataW.Write(value)
-		if keyBlockLen+2+keylen+8+4 >= keyBlockSize-2 { // need to leave room for 'end of block marker'
+		if keyBlockLen+2+len(key)+8+4 >= keyBlockSize-2 { // need to leave room for 'end of block marker'
 			// key won't fit in block so move to next
 			binary.Write(keyW, binary.LittleEndian, endOfBlock)
 			keyBlockLen += 2
@@ -135,24 +135,18 @@ func writeSegmentFiles(keyFName, dataFName string, itr LookupIterator) ([][]byte
 
 		var dataLen uint32
 		if value == nil {
-			dataLen = 0
+			dataLen = removedKeyLen
 		} else {
 			dataLen = uint32(len(value))
 		}
 
-		// check for compressed key
-		prefixLen := calculatePrefixLen(prevKey, key)
+		dk := encodeKey(key, prevKey)
 		prevKey = make([]byte, len(key))
 		copy(prevKey, key)
 
-		if prefixLen > 0 {
-			key = key[prefixLen:]
-			keylen = int(compressedBit | uint16(prefixLen<<8) | uint16(len(key)))
-		}
-
 		var data = []interface{}{
-			uint16(keylen),
-			key,
+			uint16(dk.keylen),
+			dk.compressedKey,
 			int64(dataOffset),
 			uint32(dataLen)}
 		buf := new(bytes.Buffer)
@@ -162,9 +156,11 @@ func writeSegmentFiles(keyFName, dataFName string, itr LookupIterator) ([][]byte
 				goto failed
 			}
 		}
-		keyBlockLen += 2 + len(key) + 8 + 4
+		keyBlockLen += 2 + len(dk.compressedKey) + 8 + 4
 		keyW.Write(buf.Bytes())
-		dataOffset += int64(dataLen)
+		if value != nil {
+			dataOffset += int64(dataLen)
+		}
 	}
 
 	// pad key file to block size
@@ -187,6 +183,47 @@ func writeSegmentFiles(keyFName, dataFName string, itr LookupIterator) ([][]byte
 
 failed:
 	return nil, err
+}
+
+type diskkey struct {
+	keylen        uint16
+	compressedKey []byte
+}
+
+func encodeKey(key, prevKey []byte) diskkey {
+
+	prefixLen := calculatePrefixLen(prevKey, key)
+	if prefixLen > 0 {
+		key = key[prefixLen:]
+		return diskkey{keylen: compressedBit | (uint16(prefixLen<<8) | uint16(len(key))), compressedKey: key}
+	}
+	return diskkey{keylen: uint16(len(key)), compressedKey: key}
+}
+
+func decodeKeyLen(keylen uint16) (prefixLen, compressedLen uint16, err error) {
+	if (keylen & compressedBit) != 0 {
+		prefixLen = (keylen >> 8) & maxPrefixLen
+		compressedLen = keylen & maxCompressedLen
+		if prefixLen > maxPrefixLen || compressedLen > maxCompressedLen {
+			return 0, 0, errors.New(fmt.Sprint("invalid prefix/compressed length,", prefixLen, compressedLen))
+		}
+	} else {
+		if keylen > maxKeySize {
+			return 0, 0, errors.New(fmt.Sprint("key > 1024"))
+		}
+		compressedLen = keylen
+	}
+	if compressedLen == 0 {
+		return 0, 0, errors.New("decoded key length is 0")
+	}
+	return
+}
+
+func decodeKey(key, prevKey []byte, prefixLen uint16) []byte {
+	if prefixLen != 0 {
+		key = append(prevKey[:prefixLen], key...)
+	}
+	return key
 }
 
 func calculatePrefixLen(prevKey []byte, key []byte) int {

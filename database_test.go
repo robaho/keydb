@@ -50,15 +50,29 @@ func TestDatabase(t *testing.T) {
 		t.Fatal("unable to remove by key", err)
 	}
 	_, err = tx.Get([]byte("mykey"))
-	if err == nil {
+	if err != keydb.KeyNotFound {
 		t.Fatal("should not of found removed key")
 	}
 	tx.Commit()
-	err = db.Close()
+	err = db.CloseWithMerge(1)
 	if err != nil {
 		t.Fatal("unable to close database", err)
 	}
 
+	db, err = keydb.Open("test/mydb", tables, true)
+	if err != nil {
+		t.Fatal("unable to create database", err)
+	}
+
+	tx, err = db.BeginTX("main")
+	if err != nil {
+		t.Fatal("unable to create transaction", err)
+	}
+	_, err = tx.Get([]byte("mykey"))
+	if err != keydb.KeyNotFound {
+		t.Fatal("should not of found removed key")
+	}
+	tx.Commit()
 }
 
 func TestCommit(t *testing.T) {
@@ -354,4 +368,75 @@ func TestPersistence(t *testing.T) {
 	if err != nil {
 		t.Fatal("unable to close database", err)
 	}
+}
+
+func TestRemovedKeys(t *testing.T) {
+	tables := []keydb.Table{keydb.Table{"main", keydb.DefaultKeyCompare{}}}
+	keydb.Remove("test/mydb")
+
+	db, err := keydb.Open("test/mydb", tables, true)
+	if err != nil {
+		t.Fatal("unable to create database", err)
+	}
+
+	tx, err := db.BeginTX("main")
+	if err != nil {
+		t.Fatal("unable to create transaction", err)
+	}
+	err = tx.Put([]byte("mykey"), []byte("myvalue"))
+	if err != nil {
+		t.Fatal("unable to put key/Value", err)
+	}
+	_, err = tx.Get([]byte("mykey"))
+	if err != nil {
+		t.Fatal("unable to get by key", err)
+	}
+	tx.Commit()
+
+	err = db.CloseWithMerge(1)
+	if err != nil {
+		t.Fatal("unable to close database", err)
+	}
+
+	db, err = keydb.Open("test/mydb", tables, true)
+	if err != nil {
+		t.Fatal("unable to create database", err)
+	}
+
+	tx, err = db.BeginTX("main")
+	if err != nil {
+		t.Fatal("unable to create transaction", err)
+	}
+	_, err = tx.Remove([]byte("mykey"))
+	if err != nil {
+		t.Fatal("unable to remove key", err)
+	}
+	_, err = tx.Get([]byte("mykey"))
+	if err != keydb.KeyNotFound {
+		t.Fatal("should not of found key", err)
+	}
+	tx.Commit()
+	err = db.CloseWithMerge(1)
+	db, err = keydb.Open("test/mydb", tables, true)
+	if err != nil {
+		t.Fatal("unable to create database", err)
+	}
+	tx, err = db.BeginTX("main")
+	if err != nil {
+		t.Fatal("unable to create transaction", err)
+	}
+	_, err = tx.Get([]byte("mykey"))
+	if err != keydb.KeyNotFound {
+		t.Fatal("should not of found key", err)
+	}
+	itr, err := tx.Lookup(nil, nil)
+	if err != nil {
+		t.Fatal("unable to open iterator", err)
+	}
+	_, _, err = itr.Next()
+	if err != keydb.EndOfIterator {
+		t.Fatal("iterator should be empty", err)
+	}
+	tx.Commit()
+	err = db.CloseWithMerge(1)
 }

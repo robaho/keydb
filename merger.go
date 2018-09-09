@@ -161,7 +161,7 @@ func mergeDiskSegments1(dbpath string, table string, id uint64, segments []segme
 
 	compare := segments[0].getKeyCompare()
 
-	ms := newMultiSegment(segments, nil, compare)
+	ms := newMultiSegment(segments, compare)
 	itr, err := ms.Lookup(nil, nil)
 	if err != nil {
 		return nil, err

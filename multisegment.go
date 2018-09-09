@@ -4,7 +4,6 @@ package keydb
 // may contain the same key with different values (due to an update or a remove)
 type multiSegment struct {
 	segments []segment
-	writable segment
 	compare  KeyCompare
 }
 
@@ -76,15 +75,12 @@ func (msi *multiSegmentIterator) Next() (key []byte, value []byte, err error) {
 	return
 }
 
-func newMultiSegment(segments []segment, writable segment, compare KeyCompare) *multiSegment {
-	return &multiSegment{segments: segments, writable: writable, compare: compare}
+func newMultiSegment(segments []segment, compare KeyCompare) *multiSegment {
+	return &multiSegment{segments: segments, compare: compare}
 }
 
 func (ms *multiSegment) Put(key []byte, value []byte) error {
-	if ms.writable == nil {
-		panic(ReadOnlySegment)
-	}
-	return ms.writable.Put(key, value)
+	panic("Put called on multiSegmentIterator")
 }
 
 func (ms *multiSegment) Get(key []byte) ([]byte, error) {
@@ -92,9 +88,6 @@ func (ms *multiSegment) Get(key []byte) ([]byte, error) {
 	for i := len(ms.segments) - 1; i >= 0; i-- {
 		s := ms.segments[i]
 		val, err := s.Get(key)
-		if err == KeyRemoved {
-			return nil, KeyRemoved
-		}
 		if err == nil {
 			return val, nil
 		}
@@ -103,10 +96,7 @@ func (ms *multiSegment) Get(key []byte) ([]byte, error) {
 }
 
 func (ms *multiSegment) Remove(key []byte) ([]byte, error) {
-	if ms.writable == nil {
-		panic(ReadOnlySegment)
-	}
-	return ms.writable.Remove(key)
+	panic("Remove called on multiSegmentIterator")
 }
 
 func (ms *multiSegment) Lookup(lower []byte, upper []byte) (LookupIterator, error) {

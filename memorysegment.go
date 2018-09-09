@@ -30,9 +30,6 @@ func (ms *memorySegment) Get(key []byte) ([]byte, error) {
 	if !ok {
 		return nil, KeyNotFound
 	}
-	if value == nil {
-		return nil, KeyRemoved
-	}
 	return value, nil
 
 }
@@ -41,7 +38,7 @@ func (ms *memorySegment) Remove(key []byte) ([]byte, error) {
 	if ok {
 		return value, nil
 	}
-	return nil, KeyRemoved
+	return nil, KeyNotFound
 }
 
 func (ms *memorySegment) Lookup(lower []byte, upper []byte) (LookupIterator, error) {
