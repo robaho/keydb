@@ -32,7 +32,7 @@ func main() {
 	path := "test/structkeys"
 
 	keydb.Remove(path)
-	db, err := keydb.Open(path, []keydb.Table{{"main", &MyKey{}}}, true)
+	db, err := keydb.Open(path, true)
 	if err != nil {
 		panic(err)
 	}
