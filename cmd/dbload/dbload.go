@@ -44,7 +44,6 @@ func main() {
 	r := bufio.NewReader(infile)
 
 	var asStrings bool
-	var tableNames []string
 
 	var db *keydb.Database
 
@@ -54,6 +53,11 @@ func main() {
 	type EntryElement struct {
 		Key   string `xml:"key"`
 		Value string `xml:"value"`
+	}
+
+	db, err = keydb.Open(dbpath, *create)
+	if err != nil {
+		panic(err)
 	}
 
 	var inElement string
@@ -71,8 +75,6 @@ func main() {
 			// ...and its name is "page"
 			if inElement == "db" {
 				asStrings, _ = strconv.ParseBool(getAttr("strings", se.Attr))
-			} else if inElement == "table" {
-				tableNames = append(tableNames, getAttr("name", se.Attr))
 			} else if inElement == "tabledata" {
 				tx, err = db.BeginTX(getAttr("name", se.Attr))
 				if err != nil {
@@ -99,13 +101,6 @@ func main() {
 			}
 		case xml.EndElement:
 			outElement := se.Name.Local
-			if outElement == "tables" {
-				// at this ppint we know the tables, so create the database
-				db, err = keydb.Open(dbpath, tableNames, *create)
-				if err != nil {
-					log.Fatal(err)
-				}
-			}
 			if outElement == "tabledata" {
 				tx.Commit()
 			}

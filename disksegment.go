@@ -58,7 +58,7 @@ var keyRemoved = errors.New("key removed")
 func loadDiskSegments(directory string, table string) []segment {
 	files, err := ioutil.ReadDir(directory)
 	if err != nil {
-		panic(err)
+		return []segment{}
 	}
 	segments := []segment{}
 	for _, file := range files {

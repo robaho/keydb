@@ -49,18 +49,18 @@ var dblock sync.RWMutex
 // if createIfNeeded is true, them if the db doesn't exist it will be created
 // Additional tables can be added on subsequent opens, but there is no current way to delete a table,
 // except for deleting the table related files from the directory
-func Open(path string, tables []string, createIfNeeded bool) (*Database, error) {
+func Open(path string, createIfNeeded bool) (*Database, error) {
 	dblock.Lock()
 	defer dblock.Unlock()
 
-	db, err := open(path, tables)
+	db, err := open(path)
 	if err == NoDatabaseFound && createIfNeeded == true {
-		return create(path, tables)
+		return create(path)
 	}
 	return db, err
 }
 
-func open(path string, tables []string) (*Database, error) {
+func open(path string) (*Database, error) {
 
 	path = filepath.Clean(path)
 
@@ -86,10 +86,6 @@ func open(path string, tables []string) (*Database, error) {
 	db.lockfile = lf
 	db.transactions = make(map[uint64]*Transaction)
 	db.tables = make(map[string]*internalTable)
-	for _, table := range tables {
-		it := &internalTable{name: table, segments: loadDiskSegments(path, table)}
-		db.tables[table] = it
-	}
 
 	db.wg.Add(1)
 	go mergeDiskSegments(db)
@@ -97,7 +93,7 @@ func open(path string, tables []string) (*Database, error) {
 	return db, nil
 }
 
-func create(path string, tables []string) (*Database, error) {
+func create(path string) (*Database, error) {
 	path = filepath.Clean(path)
 
 	err := os.MkdirAll(path, os.ModePerm)
@@ -105,7 +101,7 @@ func create(path string, tables []string) (*Database, error) {
 		return nil, err
 	}
 
-	return open(path, tables)
+	return open(path)
 }
 
 // remove the database, deleting all files. the caller must be able to

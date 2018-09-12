@@ -44,17 +44,12 @@ func main() {
 		log.Fatal("database contains zero tables")
 	}
 
-	db, err := keydb.Open(dbpath, tables, false)
+	db, err := keydb.Open(dbpath, false)
 	if err != nil {
 		log.Fatal(err)
 	}
 
 	fmt.Fprintf(w, "<db path=\"%s\">\n", html.EscapeString(dbpath))
-	fmt.Fprintln(w, "\t<tables>")
-	for _, v := range tables {
-		fmt.Fprintf(w, "\t\t<table name=\"%s\"></table>\n", v)
-	}
-	fmt.Fprintln(w, "\t</tables>")
 	for _, v := range tables {
 		name := v
 		fmt.Fprintf(w, "\t<tabledata name=\"%s\">\n", name)

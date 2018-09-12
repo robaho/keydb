@@ -11,10 +11,9 @@ import (
 import "github.com/robaho/keydb"
 
 func TestDatabase(t *testing.T) {
-	tables := []string{"main"}
 	keydb.Remove("test/mydb")
 
-	db, err := keydb.Open("test/mydb", tables, true)
+	db, err := keydb.Open("test/mydb", true)
 	if err != nil {
 		t.Fatal("unable to create database", err)
 	}
@@ -59,7 +58,7 @@ func TestDatabase(t *testing.T) {
 		t.Fatal("unable to close database", err)
 	}
 
-	db, err = keydb.Open("test/mydb", tables, true)
+	db, err = keydb.Open("test/mydb", true)
 	if err != nil {
 		t.Fatal("unable to create database", err)
 	}
@@ -76,10 +75,9 @@ func TestDatabase(t *testing.T) {
 }
 
 func TestCommit(t *testing.T) {
-	tables := []string{"main"}
 	keydb.Remove("test/mydb")
 
-	db, err := keydb.Open("test/mydb", tables, true)
+	db, err := keydb.Open("test/mydb", true)
 	tx, err := db.BeginTX("main")
 	if err != nil {
 		t.Fatal("unable to create transaction", err)
@@ -126,10 +124,9 @@ func TestCommit(t *testing.T) {
 }
 
 func TestCommitSync(t *testing.T) {
-	tables := []string{"main"}
 	keydb.Remove("test/mydb")
 
-	db, err := keydb.Open("test/mydb", tables, true)
+	db, err := keydb.Open("test/mydb", true)
 	tx, err := db.BeginTX("main")
 	if err != nil {
 		t.Fatal("unable to create transaction", err)
@@ -184,10 +181,9 @@ func TestCommitSync(t *testing.T) {
 }
 
 func TestDatabaseIterator(t *testing.T) {
-	tables := []string{"main"}
 	keydb.Remove("test/mydb")
 
-	db, err := keydb.Open("test/mydb", tables, true)
+	db, err := keydb.Open("test/mydb", true)
 	if err != nil {
 		t.Fatal("unable to create database", err)
 	}
@@ -253,10 +249,9 @@ func TestDatabaseIterator(t *testing.T) {
 }
 
 func TestSegmentMerge(t *testing.T) {
-	tables := []string{"main"}
 	keydb.Remove("test/mydb")
 
-	db, err := keydb.Open("test/mydb", tables, true)
+	db, err := keydb.Open("test/mydb", true)
 	if err != nil {
 		t.Fatal("unable to create database", err)
 	}
@@ -296,7 +291,7 @@ func TestSegmentMerge(t *testing.T) {
 		t.Fatal("there should only be NaxSegments*2 files at this point, count is ", count)
 	}
 
-	db, err = keydb.Open("test/mydb", tables, false)
+	db, err = keydb.Open("test/mydb", false)
 	if err != nil {
 		t.Fatal("unable to open database", err)
 	}
@@ -327,10 +322,9 @@ func countFiles(path string) int {
 }
 
 func TestPersistence(t *testing.T) {
-	tables := []string{"main"}
 	keydb.Remove("test/mydb")
 
-	db, err := keydb.Open("test/mydb", tables, true)
+	db, err := keydb.Open("test/mydb", true)
 	if err != nil {
 		t.Fatal("unable to create database", err)
 	}
@@ -348,7 +342,7 @@ func TestPersistence(t *testing.T) {
 
 	db.Close()
 
-	db, err = keydb.Open("test/mydb", tables, false)
+	db, err = keydb.Open("test/mydb", false)
 	if err != nil {
 		t.Fatal("database did not exist", err)
 	}
@@ -371,10 +365,9 @@ func TestPersistence(t *testing.T) {
 }
 
 func TestRemovedKeys(t *testing.T) {
-	tables := []string{"main"}
 	keydb.Remove("test/mydb")
 
-	db, err := keydb.Open("test/mydb", tables, true)
+	db, err := keydb.Open("test/mydb", true)
 	if err != nil {
 		t.Fatal("unable to create database", err)
 	}
@@ -398,7 +391,7 @@ func TestRemovedKeys(t *testing.T) {
 		t.Fatal("unable to close database", err)
 	}
 
-	db, err = keydb.Open("test/mydb", tables, true)
+	db, err = keydb.Open("test/mydb", true)
 	if err != nil {
 		t.Fatal("unable to create database", err)
 	}
@@ -417,7 +410,7 @@ func TestRemovedKeys(t *testing.T) {
 	}
 	tx.Commit()
 	err = db.CloseWithMerge(1)
-	db, err = keydb.Open("test/mydb", tables, true)
+	db, err = keydb.Open("test/mydb", true)
 	if err != nil {
 		t.Fatal("unable to create database", err)
 	}

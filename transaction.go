@@ -49,7 +49,8 @@ func (db *Database) BeginTX(table string) (*Transaction, error) {
 
 	it, ok := db.tables[table]
 	if !ok {
-		return nil, errors.New("unknown table")
+		it = &internalTable{name: table, segments: loadDiskSegments(db.path, table)}
+		db.tables[table] = it
 	}
 
 	for { // wait to start transaction if table has too many segments

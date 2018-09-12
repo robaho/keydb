@@ -15,10 +15,9 @@ func main() {
 
 	runtime.GOMAXPROCS(4)
 
-	tables := []string{"main"}
 	keydb.Remove("test/mydb")
 
-	db, err := keydb.Open("test/mydb", tables, true)
+	db, err := keydb.Open("test/mydb", true)
 	if err != nil {
 		log.Fatal("unable to create database", err)
 	}
@@ -54,9 +53,9 @@ func main() {
 		panic(err)
 	}
 
-	testRead(tables)
+	testRead()
 
-	db, err = keydb.Open("test/mydb", tables, false)
+	db, err = keydb.Open("test/mydb", false)
 	if err != nil {
 		log.Fatal("unable to open database", err)
 	}
@@ -67,11 +66,11 @@ func main() {
 
 	fmt.Println("close with merge 1 time ", duration/1000000.0, "ms")
 
-	testRead(tables)
+	testRead()
 }
 
-func testRead(tables []string) {
-	db, err := keydb.Open("test/mydb", tables, false)
+func testRead() {
+	db, err := keydb.Open("test/mydb", false)
 	if err != nil {
 		log.Fatal("unable to open database", err)
 	}
