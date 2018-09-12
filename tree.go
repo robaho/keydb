@@ -7,8 +7,7 @@ import (
 // auto balancing binary Tree, based on code from 'applied go', but modified for []byte key and values,
 // and range searching
 type Tree struct {
-	root    *node
-	Compare KeyCompare
+	root *node
 }
 
 type node struct {
@@ -37,9 +36,7 @@ func (n *node) insert(key, data []byte) bool {
 		return false
 	}
 
-	compare := n.tree.Compare
-
-	if compare.Less(key, n.key) {
+	if less(key, n.key) {
 		// If there is no left child, create a new one.
 		if n.left == nil {
 			// Create a new node.
@@ -167,13 +164,11 @@ func (n *node) Find(key []byte) ([]byte, bool) {
 		return nil, false
 	}
 
-	compare := n.tree.Compare
-
-	if bytes.Equal(key, n.key) {
+	if equal(key, n.key) {
 		return n.data, true
 	}
 
-	if compare.Less(key, n.key) {
+	if less(key, n.key) {
 		return n.left.Find(key)
 	} else {
 		return n.right.Find(key)
@@ -188,15 +183,13 @@ func (n *node) Remove(key []byte) ([]byte, bool) {
 		return nil, false
 	}
 
-	compare := n.tree.Compare
-
 	if bytes.Equal(key, n.key) {
 		prev := n.data
 		n.data = nil
 		return prev, true
 	}
 
-	if compare.Less(key, n.key) {
+	if less(key, n.key) {
 		return n.left.Remove(key)
 	} else {
 		return n.right.Remove(key)
@@ -252,7 +245,7 @@ type TreeEntry struct {
 }
 
 // The functions finds all nodes within the provided key range, call function fn on each found node
-func FindNodes(node *node, compare KeyCompare, lower []byte, upper []byte, fn func(*node)) {
+func FindNodes(node *node, lower []byte, upper []byte, fn func(*node)) {
 	if node == nil {
 		return
 	}
@@ -260,18 +253,18 @@ func FindNodes(node *node, compare KeyCompare, lower []byte, upper []byte, fn fu
 	/* Since the desired o/p is sorted, recurse for left subtree first
 	   If node.key is greater than lower, then only we can get o/p keys
 	   in left subtree */
-	if lower == nil || compare.Less(lower, node.key) {
-		FindNodes(node.left, compare, lower, upper, fn)
+	if lower == nil || less(lower, node.key) {
+		FindNodes(node.left, lower, upper, fn)
 	}
 
-	if isNodeInRange(node, compare, lower, upper) {
+	if isNodeInRange(node, lower, upper) {
 		fn(node)
 	}
 
 	/* If node.key is smaller than upper, then only we can get o/p keys
 	in right subtree */
-	if upper == nil || compare.Less(node.key, upper) {
-		FindNodes(node.right, compare, lower, upper, fn)
+	if upper == nil || less(node.key, upper) {
+		FindNodes(node.right, lower, upper, fn)
 	}
 }
 
@@ -280,24 +273,22 @@ func (t *Tree) FindNodes(lower []byte, upper []byte) []TreeEntry {
 		return nil
 	}
 
-	compare := t.Compare
-
 	results := make([]TreeEntry, 0)
 
 	nodeInRange := func(n *node) {
 		results = append(results, TreeEntry{n.key, n.data})
 	}
-	FindNodes(t.root, compare, lower, upper, nodeInRange)
+	FindNodes(t.root, lower, upper, nodeInRange)
 	return results
 }
 
-func isNodeInRange(n *node, compare KeyCompare, lower []byte, upper []byte) bool {
+func isNodeInRange(n *node, lower []byte, upper []byte) bool {
 	if n == nil {
 		return false
 	}
-	if bytes.Equal(n.key, lower) || bytes.Equal(n.key, upper) {
+	if equal(n.key, lower) || equal(n.key, upper) {
 		return true
 	} else {
-		return (upper == nil || compare.Less(n.key, upper)) && (lower == nil || compare.Less(lower, n.key))
+		return (upper == nil || less(n.key, upper)) && (lower == nil || less(lower, n.key))
 	}
 }

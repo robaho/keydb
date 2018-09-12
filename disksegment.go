@@ -33,7 +33,6 @@ type diskSegment struct {
 	keyFile   *os.File
 	keyBlocks int64
 	dataFile  *os.File
-	compare   KeyCompare
 	id        uint64
 	// nil for segments loaded during initial open
 	// otherwise holds the key for every keyIndexInterval block
@@ -56,7 +55,7 @@ type diskSegmentIterator struct {
 
 var keyRemoved = errors.New("key removed")
 
-func loadDiskSegments(directory string, table string, compare KeyCompare) []segment {
+func loadDiskSegments(directory string, table string) []segment {
 	files, err := ioutil.ReadDir(directory)
 	if err != nil {
 		panic(err)
@@ -76,7 +75,7 @@ func loadDiskSegments(directory string, table string, compare KeyCompare) []segm
 			id := getSegmentID(file.Name())
 			keyFilename := filepath.Join(directory, base+".keys."+strconv.FormatUint(id, 10))
 			dataFilename := filepath.Join(directory, base+".data."+strconv.FormatUint(id, 10))
-			segments = append(segments, newDiskSegment(keyFilename, dataFilename, compare, nil)) // don't have keyIndex
+			segments = append(segments, newDiskSegment(keyFilename, dataFilename, nil)) // don't have keyIndex
 		}
 	}
 	sort.Slice(segments, func(i, j int) bool {
@@ -97,7 +96,7 @@ func getSegmentID(filename string) uint64 {
 	return 0
 }
 
-func newDiskSegment(keyFilename, dataFilename string, compare KeyCompare, keyIndex [][]byte) segment {
+func newDiskSegment(keyFilename, dataFilename string, keyIndex [][]byte) segment {
 
 	segmentID := getSegmentID(keyFilename)
 
@@ -119,7 +118,6 @@ func newDiskSegment(keyFilename, dataFilename string, compare KeyCompare, keyInd
 	}
 
 	ds.keyBlocks = (fi.Size()-1)/keyBlockSize + 1
-	ds.compare = compare
 	ds.id = segmentID
 
 	if keyIndex == nil {
@@ -220,18 +218,18 @@ func (dsi *diskSegmentIterator) nextKeyValue() error {
 		prevKey = key
 
 		if dsi.lower != nil {
-			if dsi.segment.compare.Less(key, dsi.lower) {
+			if less(key, dsi.lower) {
 				continue
 			}
-			if bytes.Equal(key, dsi.lower) {
+			if equal(key, dsi.lower) {
 				goto found
 			}
 		}
 		if dsi.upper != nil {
-			if bytes.Equal(key, dsi.upper) {
+			if equal(key, dsi.upper) {
 				goto found
 			}
-			if !dsi.segment.compare.Less(key, dsi.upper) {
+			if !less(key, dsi.upper) {
 				dsi.finished = true
 				dsi.isValid = true
 				dsi.key = nil
@@ -254,9 +252,6 @@ func (dsi *diskSegmentIterator) nextKeyValue() error {
 	}
 }
 
-func (ds *diskSegment) getKeyCompare() KeyCompare {
-	return ds.compare
-}
 func (ds *diskSegment) Put(key []byte, value []byte) error {
 	panic("disk segments are not mutable, unable to Put")
 }
@@ -285,7 +280,7 @@ func binarySearch(ds *diskSegment, key []byte) (offset int64, length uint32, err
 
 	if ds.keyIndex != nil { // we have memory index, so narrow block range down
 		index := sort.Search(len(ds.keyIndex), func(i int) bool {
-			return ds.compare.Less(key, ds.keyIndex[i])
+			return less(key, ds.keyIndex[i])
 		})
 
 		if index == 0 {
@@ -327,7 +322,7 @@ func binarySearch0(ds *diskSegment, lowblock int64, highBlock int64, key []byte,
 	keylen := binary.LittleEndian.Uint16(buffer)
 	skey := buffer[2 : 2+keylen]
 
-	if ds.compare.Less(key, skey) {
+	if less(key, skey) {
 		return binarySearch0(ds, lowblock, block, key, buffer)
 	} else {
 		return binarySearch0(ds, block, highBlock, key, buffer)
@@ -373,7 +368,7 @@ func scanBlock(ds *diskSegment, block int64, key []byte, buffer []byte) (offset 
 			}
 			return
 		}
-		if !ds.compare.Less(_key, key) {
+		if !less(_key, key) {
 			return 0, 0, KeyNotFound
 		}
 		index = endkey + 12

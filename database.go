@@ -1,6 +1,7 @@
 package keydb
 
 import (
+	"bytes"
 	"github.com/nightlyone/lockfile"
 	"io/ioutil"
 	"os"
@@ -26,19 +27,11 @@ type Database struct {
 	err error
 }
 
-// defines a table in the database
-type Table struct {
-	// the name of the table, should not have any special characters
-	Name string
-	// the key comparison interface
-	Compare KeyCompare
-}
-
 type internalTable struct {
 	sync.Mutex
-	table        Table
 	segments     []segment
 	transactions int
+	name         string
 }
 
 // iterator interface for table scanning. all iterators should be read until completion
@@ -56,7 +49,7 @@ var dblock sync.RWMutex
 // if createIfNeeded is true, them if the db doesn't exist it will be created
 // Additional tables can be added on subsequent opens, but there is no current way to delete a table,
 // except for deleting the table related files from the directory
-func Open(path string, tables []Table, createIfNeeded bool) (*Database, error) {
+func Open(path string, tables []string, createIfNeeded bool) (*Database, error) {
 	dblock.Lock()
 	defer dblock.Unlock()
 
@@ -67,7 +60,7 @@ func Open(path string, tables []Table, createIfNeeded bool) (*Database, error) {
 	return db, err
 }
 
-func open(path string, tables []Table) (*Database, error) {
+func open(path string, tables []string) (*Database, error) {
 
 	path = filepath.Clean(path)
 
@@ -93,9 +86,9 @@ func open(path string, tables []Table) (*Database, error) {
 	db.lockfile = lf
 	db.transactions = make(map[uint64]*Transaction)
 	db.tables = make(map[string]*internalTable)
-	for _, v := range tables {
-		it := &internalTable{table: v, segments: loadDiskSegments(path, v.Name, v.Compare)}
-		db.tables[v.Name] = it
+	for _, table := range tables {
+		it := &internalTable{name: table, segments: loadDiskSegments(path, table)}
+		db.tables[table] = it
 	}
 
 	db.wg.Add(1)
@@ -104,7 +97,7 @@ func open(path string, tables []Table) (*Database, error) {
 	return db, nil
 }
 
-func create(path string, tables []Table) (*Database, error) {
+func create(path string, tables []string) (*Database, error) {
 	path = filepath.Clean(path)
 
 	err := os.MkdirAll(path, os.ModePerm)
@@ -245,4 +238,11 @@ func (db *Database) CloseWithMerge(segmentCount int) error {
 
 func (db *Database) nextSegmentID() uint64 {
 	return atomic.AddUint64(&db.nextSegID, 1)
+}
+
+func less(a []byte, b []byte) bool {
+	return bytes.Compare(a, b) < 0
+}
+func equal(a []byte, b []byte) bool {
+	return bytes.Equal(a, b)
 }

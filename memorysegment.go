@@ -10,15 +10,11 @@ type memorySegment struct {
 	tree *Tree
 }
 
-func newMemorySegment(compare KeyCompare) segment {
+func newMemorySegment() segment {
 	ms := new(memorySegment)
-	ms.tree = &Tree{Compare: compare}
+	ms.tree = &Tree{}
 
 	return ms
-}
-
-func (ms *memorySegment) getKeyCompare() KeyCompare {
-	return ms.tree.Compare
 }
 
 func (ms *memorySegment) Put(key []byte, value []byte) error {

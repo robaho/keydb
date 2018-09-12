@@ -11,7 +11,7 @@ func TestTree(t *testing.T) {
 	values := []string{"d", "b", "g", "g", "c", "e", "a", "h", "f", "i", "j", "l", "k"}
 	data := []string{"delta", "bravo", "golang", "golf", "charlie", "echo", "alpha", "hotel", "foxtrot", "india", "juliett", "lima", "kilo"}
 
-	tree := &Tree{Compare: StringKeyCompare{}}
+	tree := &Tree{}
 	for i := 0; i < len(values); i++ {
 		tree.Insert([]byte(values[i]), []byte(data[i]))
 	}

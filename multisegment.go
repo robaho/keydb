@@ -4,12 +4,10 @@ package keydb
 // may contain the same key with different values (due to an update or a remove)
 type multiSegment struct {
 	segments []segment
-	compare  KeyCompare
 }
 
 type multiSegmentIterator struct {
 	iterators []LookupIterator
-	compare   KeyCompare
 }
 
 func (msi *multiSegmentIterator) peekKey() ([]byte, error) {
@@ -40,7 +38,7 @@ func (msi *multiSegmentIterator) Next() (key []byte, value []byte, err error) {
 			continue
 		}
 
-		if lowest == nil || msi.compare.Less(key, lowest) {
+		if lowest == nil || less(key, lowest) {
 			lowest = make([]byte, len(key))
 			copy(lowest, key)
 			currentIndex = i
@@ -64,7 +62,7 @@ func (msi *multiSegmentIterator) Next() (key []byte, value []byte, err error) {
 			if err != nil {
 				break
 			}
-			if key == nil || !msi.compare.Less(lowest, key) {
+			if key == nil || !less(lowest, key) {
 				msi.Next()
 			} else {
 				break
@@ -75,8 +73,8 @@ func (msi *multiSegmentIterator) Next() (key []byte, value []byte, err error) {
 	return
 }
 
-func newMultiSegment(segments []segment, compare KeyCompare) *multiSegment {
-	return &multiSegment{segments: segments, compare: compare}
+func newMultiSegment(segments []segment) *multiSegment {
+	return &multiSegment{segments: segments}
 }
 
 func (ms *multiSegment) Put(key []byte, value []byte) error {
@@ -108,5 +106,5 @@ func (ms *multiSegment) Lookup(lower []byte, upper []byte) (LookupIterator, erro
 		}
 		iterators = append(iterators, iterator)
 	}
-	return &multiSegmentIterator{iterators: iterators, compare: ms.compare}, nil
+	return &multiSegmentIterator{iterators: iterators}, nil
 }

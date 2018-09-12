@@ -11,7 +11,7 @@ import (
 import "github.com/robaho/keydb"
 
 func TestDatabase(t *testing.T) {
-	tables := []keydb.Table{keydb.Table{"main", keydb.DefaultKeyCompare{}}}
+	tables := []string{"main"}
 	keydb.Remove("test/mydb")
 
 	db, err := keydb.Open("test/mydb", tables, true)
@@ -76,7 +76,7 @@ func TestDatabase(t *testing.T) {
 }
 
 func TestCommit(t *testing.T) {
-	tables := []keydb.Table{keydb.Table{"main", keydb.DefaultKeyCompare{}}}
+	tables := []string{"main"}
 	keydb.Remove("test/mydb")
 
 	db, err := keydb.Open("test/mydb", tables, true)
@@ -126,7 +126,7 @@ func TestCommit(t *testing.T) {
 }
 
 func TestCommitSync(t *testing.T) {
-	tables := []keydb.Table{keydb.Table{"main", keydb.DefaultKeyCompare{}}}
+	tables := []string{"main"}
 	keydb.Remove("test/mydb")
 
 	db, err := keydb.Open("test/mydb", tables, true)
@@ -184,7 +184,7 @@ func TestCommitSync(t *testing.T) {
 }
 
 func TestDatabaseIterator(t *testing.T) {
-	tables := []keydb.Table{keydb.Table{"main", keydb.DefaultKeyCompare{}}}
+	tables := []string{"main"}
 	keydb.Remove("test/mydb")
 
 	db, err := keydb.Open("test/mydb", tables, true)
@@ -253,7 +253,7 @@ func TestDatabaseIterator(t *testing.T) {
 }
 
 func TestSegmentMerge(t *testing.T) {
-	tables := []keydb.Table{keydb.Table{"main", keydb.DefaultKeyCompare{}}}
+	tables := []string{"main"}
 	keydb.Remove("test/mydb")
 
 	db, err := keydb.Open("test/mydb", tables, true)
@@ -327,7 +327,7 @@ func countFiles(path string) int {
 }
 
 func TestPersistence(t *testing.T) {
-	tables := []keydb.Table{keydb.Table{"main", keydb.DefaultKeyCompare{}}}
+	tables := []string{"main"}
 	keydb.Remove("test/mydb")
 
 	db, err := keydb.Open("test/mydb", tables, true)
@@ -371,7 +371,7 @@ func TestPersistence(t *testing.T) {
 }
 
 func TestRemovedKeys(t *testing.T) {
-	tables := []keydb.Table{keydb.Table{"main", keydb.DefaultKeyCompare{}}}
+	tables := []string{"main"}
 	keydb.Remove("test/mydb")
 
 	db, err := keydb.Open("test/mydb", tables, true)

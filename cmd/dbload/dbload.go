@@ -47,7 +47,6 @@ func main() {
 	var tableNames []string
 
 	var db *keydb.Database
-	var compare keydb.KeyCompare = keydb.DefaultKeyCompare{}
 
 	decoder := xml.NewDecoder(r)
 	var tx *keydb.Transaction
@@ -72,9 +71,6 @@ func main() {
 			// ...and its name is "page"
 			if inElement == "db" {
 				asStrings, _ = strconv.ParseBool(getAttr("strings", se.Attr))
-				if asStrings {
-					compare = keydb.StringKeyCompare{}
-				}
 			} else if inElement == "table" {
 				tableNames = append(tableNames, getAttr("name", se.Attr))
 			} else if inElement == "tabledata" {
@@ -105,11 +101,7 @@ func main() {
 			outElement := se.Name.Local
 			if outElement == "tables" {
 				// at this ppint we know the tables, so create the database
-				tables := make([]keydb.Table, len(tableNames))
-				for i, v := range tableNames {
-					tables[i] = keydb.Table{v, compare}
-				}
-				db, err = keydb.Open(dbpath, tables, *create)
+				db, err = keydb.Open(dbpath, tableNames, *create)
 				if err != nil {
 					log.Fatal(err)
 				}

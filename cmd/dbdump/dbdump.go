@@ -2,7 +2,6 @@ package main
 
 import (
 	"bufio"
-	"encoding/hex"
 	"flag"
 	"fmt"
 	"github.com/robaho/keydb"
@@ -16,7 +15,6 @@ import (
 
 // dump a database to stdout
 func main() {
-	asStrings := flag.Bool("s", false, "use strings for keys and values")
 	path := flag.String("path", "", "set the database path")
 	out := flag.String("out", "dbdump.xml", "set output file")
 
@@ -41,19 +39,9 @@ func main() {
 		log.Fatalln("path is not a directory")
 	}
 
-	tableNames := findTableNames(dbpath)
-	if tableNames == nil || len(tableNames) == 0 {
+	tables := findTableNames(dbpath)
+	if tables == nil || len(tables) == 0 {
 		log.Fatal("database contains zero tables")
-	}
-	var compare keydb.KeyCompare = keydb.DefaultKeyCompare{}
-	if *asStrings {
-		compare = keydb.StringKeyCompare{}
-	}
-
-	tables := make([]keydb.Table, len(tableNames))
-	for i, v := range tableNames {
-		table := keydb.Table{Name: v, Compare: compare}
-		tables[i] = table
 	}
 
 	db, err := keydb.Open(dbpath, tables, false)
@@ -61,18 +49,18 @@ func main() {
 		log.Fatal(err)
 	}
 
-	fmt.Fprintf(w, "<db path=\"%s\" strings=\"%t\">\n", html.EscapeString(dbpath), *asStrings)
+	fmt.Fprintf(w, "<db path=\"%s\">\n", html.EscapeString(dbpath))
 	fmt.Fprintln(w, "\t<tables>")
 	for _, v := range tables {
-		fmt.Fprintf(w, "\t\t<table name=\"%s\"></table>\n", v.Name)
+		fmt.Fprintf(w, "\t\t<table name=\"%s\"></table>\n", v)
 	}
 	fmt.Fprintln(w, "\t</tables>")
 	for _, v := range tables {
-		name := v.Name
+		name := v
 		fmt.Fprintf(w, "\t<tabledata name=\"%s\">\n", name)
 		tx, err := db.BeginTX(name)
 		if err != nil {
-			log.Fatal("unable to open tx on ", v.Name, " ", err)
+			log.Fatal("unable to open tx on ", v, " ", err)
 		}
 		itr, err := tx.Lookup(nil, nil)
 		if err != nil {
@@ -80,11 +68,7 @@ func main() {
 		}
 		for {
 			if key, value, err := itr.Next(); err == nil {
-				if *asStrings {
-					fmt.Fprintf(w, "\t\t<entry><key>%s</key> <value>%s</value></entry>\n", html.EscapeString(string(key)), html.EscapeString(string(value)))
-				} else {
-					fmt.Fprintln(w, "\t\t<entry><key>", hex.EncodeToString(key), "</key>", "<value>", hex.EncodeToString(value), "</value></entry>")
-				}
+				fmt.Fprintf(w, "\t\t<entry><key>%s</key> <value>%s</value></entry>\n", html.EscapeString(string(key)), html.EscapeString(string(value)))
 			} else {
 				if err == keydb.EndOfIterator {
 					break

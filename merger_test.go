@@ -9,11 +9,11 @@ import (
 func TestMerger(t *testing.T) {
 	os.RemoveAll("test")
 	os.Mkdir("test", os.ModePerm)
-	m1 := newMemorySegment(DefaultKeyCompare{})
+	m1 := newMemorySegment()
 	for i := 0; i < 100000; i++ {
 		m1.Put([]byte(fmt.Sprint("mykey", i)), []byte(fmt.Sprint("myvalue", i)))
 	}
-	m2 := newMemorySegment(DefaultKeyCompare{})
+	m2 := newMemorySegment()
 	for i := 100000; i < 200000; i++ {
 		m2.Put([]byte(fmt.Sprint("mykey", i)), []byte(fmt.Sprint("myvalue", i)))
 	}
@@ -42,11 +42,11 @@ func TestMerger(t *testing.T) {
 func TestMergerRemove(t *testing.T) {
 	os.RemoveAll("test")
 	os.Mkdir("test", os.ModePerm)
-	m1 := newMemorySegment(DefaultKeyCompare{})
+	m1 := newMemorySegment()
 	for i := 0; i < 100000; i++ {
 		m1.Put([]byte(fmt.Sprint("mykey", i)), []byte(fmt.Sprint("myvalue", i)))
 	}
-	m2 := newMemorySegment(DefaultKeyCompare{})
+	m2 := newMemorySegment()
 	for i := 0; i < 100000; i++ {
 		m2.Remove([]byte(fmt.Sprint("mykey", i)))
 	}

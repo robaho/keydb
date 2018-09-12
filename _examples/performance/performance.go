@@ -15,7 +15,7 @@ func main() {
 
 	runtime.GOMAXPROCS(4)
 
-	tables := []keydb.Table{keydb.Table{"main", keydb.DefaultKeyCompare{}}}
+	tables := []string{"main"}
 	keydb.Remove("test/mydb")
 
 	db, err := keydb.Open("test/mydb", tables, true)
@@ -70,7 +70,7 @@ func main() {
 	testRead(tables)
 }
 
-func testRead(tables []keydb.Table) {
+func testRead(tables []string) {
 	db, err := keydb.Open("test/mydb", tables, false)
 	if err != nil {
 		log.Fatal("unable to open database", err)

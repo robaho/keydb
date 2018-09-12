@@ -99,7 +99,7 @@ func mergeTableSegments(db *Database, table *internalTable, segmentCount int) er
 		id := mergable[len(mergable)-1].id
 		segments = segments[index : index+len(mergable)]
 
-		newseg, err := mergeDiskSegments1(db.path, table.table.Name, id, segments)
+		newseg, err := mergeDiskSegments1(db.path, table.name, id, segments)
 		if err != nil {
 			return err
 		}
@@ -159,14 +159,12 @@ func mergeDiskSegments1(dbpath string, table string, id uint64, segments []segme
 	keyFilename := base + "." + sseq + ".keys." + sid
 	dataFilename := base + "." + sseq + ".data." + sid
 
-	compare := segments[0].getKeyCompare()
-
-	ms := newMultiSegment(segments, compare)
+	ms := newMultiSegment(segments)
 	itr, err := ms.Lookup(nil, nil)
 	if err != nil {
 		return nil, err
 	}
 
-	return writeAndLoadSegment(keyFilename, dataFilename, itr, compare)
+	return writeAndLoadSegment(keyFilename, dataFilename, itr)
 
 }

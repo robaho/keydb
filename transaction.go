@@ -67,9 +67,9 @@ func (db *Database) BeginTX(table string) (*Transaction, error) {
 	tx := &Transaction{db: db, table: table, open: true}
 	tx.id = atomic.AddUint64(&txID, 1)
 
-	tx.memory = newMemorySegment(it.table.Compare)
+	tx.memory = newMemorySegment()
 
-	tx.multi = newMultiSegment(append(it.segments, tx.memory), it.table.Compare)
+	tx.multi = newMultiSegment(append(it.segments, tx.memory))
 
 	db.transactions[tx.id] = tx
 

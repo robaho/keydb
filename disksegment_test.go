@@ -10,7 +10,7 @@ import (
 func TestDiskSegment(t *testing.T) {
 	os.RemoveAll("test")
 	os.Mkdir("test", os.ModePerm)
-	m := newMemorySegment(DefaultKeyCompare{})
+	m := newMemorySegment()
 	m.Put([]byte("mykey"), []byte("myvalue"))
 	m.Put([]byte("mykey2"), []byte("myvalue2"))
 	m.Put([]byte("mykey3"), []byte("myvalue3"))
@@ -18,7 +18,7 @@ func TestDiskSegment(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	ds, err := writeAndLoadSegment("test/keyfile", "test/datafile", itr, m.getKeyCompare())
+	ds, err := writeAndLoadSegment("test/keyfile", "test/datafile", itr)
 
 	itr, err = ds.Lookup(nil, nil)
 	if err != nil {
@@ -67,7 +67,7 @@ func TestDiskSegment(t *testing.T) {
 func TestLargeDiskSegment(t *testing.T) {
 	os.RemoveAll("test")
 	os.Mkdir("test", os.ModePerm)
-	m := newMemorySegment(DefaultKeyCompare{})
+	m := newMemorySegment()
 	for i := 0; i < 1000000; i++ {
 		m.Put([]byte(fmt.Sprint("mykey", i)), []byte(fmt.Sprint("myvalue", i)))
 	}
@@ -75,7 +75,7 @@ func TestLargeDiskSegment(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	ds, err := writeAndLoadSegment("test/keyfile", "test/datafile", itr, m.getKeyCompare())
+	ds, err := writeAndLoadSegment("test/keyfile", "test/datafile", itr)
 
 	itr, err = ds.Lookup(nil, nil)
 	count := 0
@@ -133,7 +133,7 @@ func TestLargeDiskSegment(t *testing.T) {
 func TestEmptySegment(t *testing.T) {
 	os.RemoveAll("test")
 	os.Mkdir("test", os.ModePerm)
-	m := newMemorySegment(DefaultKeyCompare{})
+	m := newMemorySegment()
 	m.Put([]byte("mykey"), []byte("myvalue"))
 	m.Remove([]byte("mykey"))
 	itr, err := m.Lookup(nil, nil)
@@ -141,7 +141,7 @@ func TestEmptySegment(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	ds, err := writeAndLoadSegment("test/keyfile", "test/datafile", itr, m.getKeyCompare())
+	ds, err := writeAndLoadSegment("test/keyfile", "test/datafile", itr)
 
 	itr, err = ds.Lookup(nil, nil)
 	count := 0

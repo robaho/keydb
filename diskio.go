@@ -37,7 +37,7 @@ func writeSegmentToDisk(db *Database, table string, seg segment) error {
 	keyFilename := filepath.Join(db.path, fmt.Sprint(table, ".keys.", id))
 	dataFilename := filepath.Join(db.path, fmt.Sprint(table, ".data.", id))
 
-	ds, err := writeAndLoadSegment(keyFilename, dataFilename, itr, seg.getKeyCompare())
+	ds, err := writeAndLoadSegment(keyFilename, dataFilename, itr)
 	if err != nil && err != emptySegment {
 		return err
 	}
@@ -61,7 +61,7 @@ func writeSegmentToDisk(db *Database, table string, seg segment) error {
 	return nil
 }
 
-func writeAndLoadSegment(keyFilename, dataFilename string, itr LookupIterator, compare KeyCompare) (segment, error) {
+func writeAndLoadSegment(keyFilename, dataFilename string, itr LookupIterator) (segment, error) {
 
 	keyFilenameTmp := keyFilename + ".tmp"
 	dataFilenameTmp := dataFilename + ".tmp"
@@ -76,7 +76,7 @@ func writeAndLoadSegment(keyFilename, dataFilename string, itr LookupIterator, c
 	os.Rename(keyFilenameTmp, keyFilename)
 	os.Rename(dataFilenameTmp, dataFilename)
 
-	return newDiskSegment(keyFilename, dataFilename, compare, keyIndex), nil
+	return newDiskSegment(keyFilename, dataFilename, keyIndex), nil
 }
 
 func writeSegmentFiles(keyFName, dataFName string, itr LookupIterator) ([][]byte, error) {
