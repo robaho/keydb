@@ -32,6 +32,10 @@ func (tl *transactionLookup) Next() (key, value []byte, err error) {
 	}
 }
 
+func (tx *Transaction) GetID() uint64 {
+	return tx.id
+}
+
 // create a transaction for a database table.
 // a Transaction can only be used by a single Go routine.
 // each transaction should be completed with either Commit, or Rollback
