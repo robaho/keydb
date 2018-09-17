@@ -301,29 +301,31 @@ func binarySearch(ds *diskSegment, key []byte) (offset int64, length uint32, err
 	if err != nil {
 		return 0, 0, err
 	}
-	// just scan 2 blocks
-	offset, length, err = scanBlock(ds, block, key, buffer)
-	if err == nil || err == keyRemoved {
-		return
-	}
-	return scanBlock(ds, block+1, key, buffer)
-
+	return scanBlock(ds, block, key, buffer)
 }
 
 // returns the block that may contain the key, or possible the next block - since we do not have a 'last key' of the block
-func binarySearch0(ds *diskSegment, lowblock int64, highBlock int64, key []byte, buffer []byte) (int64, error) {
-	if highBlock-lowblock <= 1 {
-		return lowblock, nil
+func binarySearch0(ds *diskSegment, lowBlock int64, highBlock int64, key []byte, buffer []byte) (int64, error) {
+	if highBlock-lowBlock <= 1 {
+		// the key is either in low block or high block, or does not exist, so check high block
+		ds.keyFile.ReadAt(buffer, highBlock*keyBlockSize)
+		keylen := binary.LittleEndian.Uint16(buffer)
+		skey := buffer[2 : 2+keylen]
+		if less(key, skey) {
+			return lowBlock, nil
+		} else {
+			return highBlock, nil
+		}
 	}
 
-	block := (highBlock-lowblock)/2 + lowblock
+	block := (highBlock-lowBlock)/2 + lowBlock
 
 	ds.keyFile.ReadAt(buffer, block*keyBlockSize)
 	keylen := binary.LittleEndian.Uint16(buffer)
 	skey := buffer[2 : 2+keylen]
 
 	if less(key, skey) {
-		return binarySearch0(ds, lowblock, block, key, buffer)
+		return binarySearch0(ds, lowBlock, block, key, buffer)
 	} else {
 		return binarySearch0(ds, block, highBlock, key, buffer)
 	}
