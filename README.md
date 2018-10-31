@@ -14,6 +14,8 @@ compressed keys which allows for very efficient storage of time series data
 
 use the dbdump and dbload utilities to save/restore databases to a single file, but just zipping up the directory works as
 well...
+
+see the related github.com/robaho/keydbr which allows remote access to a keydb instance, and allows a keydb database to be shared by multiple processes
       
 # TODOs
 
