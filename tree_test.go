@@ -1,6 +1,7 @@
 package keydb
 
 import (
+	"fmt"
 	"log"
 	"strings"
 	"testing"
@@ -28,5 +29,21 @@ func TestTree(t *testing.T) {
 				log.Fatalln("keys are out of order ", prev, s)
 			}
 		}
+	}
+}
+
+// check balancing
+func TestTree2(t *testing.T) {
+	// The values are sorted in a way that causes two single rotations and a double rotation.
+
+	tree := &Tree{}
+	for i := 0; i < 150000; i++ {
+		tree.Insert([]byte(fmt.Sprint("mykey", i)), []byte(fmt.Sprint("myval", i)))
+	}
+
+	height := tree.bfsDump()
+
+	if float64(height) > 18.0*math.Phi {
+		log.Fatalln("height should be log2(150000) * phi, height is ", height)
 	}
 }

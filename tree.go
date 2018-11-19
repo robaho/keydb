@@ -2,6 +2,7 @@ package keydb
 
 import (
 	"bytes"
+	"fmt"
 )
 
 // auto balancing binary Tree, based on code from 'applied go', but modified for []byte key and values,
@@ -15,147 +16,82 @@ type node struct {
 	data  []byte
 	left  *node
 	right *node
-	bal   int // height(n.right) - height(n.left)
-	tree  *Tree
+	h     int
 }
 
-// `insert` takes a search Value and some data and inserts a new node (unless a node with the given
-// search Value already exists, in which case `insert` only replaces the data).
-//
-// It returns:
-//
-// * `true` if the height of the Tree has increased.
-// * `false` otherwise.
-func (n *node) insert(key, data []byte) bool {
-	// The following actions depend on whether the new search key is equal, less, or greater than
-	// the current node's search key.
+func (n *node) height() int {
+	if n == nil {
+		return 0
+	}
+	return n.h
+}
+
+func (n *node) balance() int {
+	return n.right.height() - n.left.height()
+}
+
+func (n *node) insert(key, data []byte) *node {
+
+	if n == nil {
+		return &node{key: key, data: data, h: 1}
+	}
 
 	if bytes.Equal(key, n.key) {
 		// node already exists nothing changes
 		n.data = data
-		return false
+		return n
 	}
 
 	if less(key, n.key) {
-		// If there is no left child, create a new one.
-		if n.left == nil {
-			// Create a new node.
-			n.left = &node{key: key, data: data, tree: n.tree}
-			// If there is no right child, the new child node has increased the height of this subtree.
-			if n.right == nil {
-				// The new left child is the only child.
-				n.bal = -1
-			} else {
-				// There is a left and a right child. The right child cannot have children;
-				// otherwise the Tree would already have been out of balance at `n`.
-				n.bal = 0
-			}
-		} else {
-			// The left child is not nil. Continue in the left subtree.
-			if n.left.insert(key, data) {
-				// If the subtree's balance factor has become either -2 or 2, the subtree must be rebalanced.
-				if n.left.bal < -1 || n.left.bal > 1 {
-					n.rebalance(n.left)
-				} else {
-					// If no rebalancing occurred, the left subtree has grown by one: Decrease the balance of the current node by one.
-					n.bal--
-				}
-			}
-		}
+		n.left = n.left.insert(key, data)
 	} else {
-		if n.right == nil {
-			n.right = &node{key: key, data: data, tree: n.tree}
-			if n.left == nil {
-				n.bal = 1
-			} else {
-				n.bal = 0
-			}
-		} else {
-			if n.right.insert(key, data) {
-				if n.right.bal < -1 || n.right.bal > 1 {
-					n.rebalance(n.right)
-				} else {
-					n.bal++
-				}
-			}
+		n.right = n.right.insert(key, data)
+	}
+
+	n.h = max(n.left.height(), n.right.height()) + 1
+
+	bf := n.balance()
+
+	if bf < -1 {
+		if n.left.balance() >= 0 {
+			n.left = n.left.rotateLeft()
 		}
+		n = n.rotateRight()
+	} else if bf > 1 {
+		if n.right.balance() <= 0 {
+			n.right = n.right.rotateRight()
+		}
+		n = n.rotateLeft()
 	}
-	if n.bal != 0 {
-		return true
-	}
-	// No more adjustments to the ancestor nodes required.
-	return false
+
+	return n
 }
 
 // `rotateLeft` takes a child node and rotates the child node's subtree to the left.
-func (n *node) rotateLeft(c *node) {
+func (n *node) rotateLeft() *node {
 	// Save `c`'s right child.
-	r := c.right
+	r := n.right
 	// `r`'s left subtree gets reassigned to `c`.
-	c.right = r.left
+	n.right = r.left
 	// `c` becomes the left child of `r`.
-	r.left = c
-	// Make the parent node (that is, the current one) point to the new root node.
-	if c == n.left {
-		n.left = r
-	} else {
-		n.right = r
-	}
-	// Finally, adjust the balances. After a single rotation, the subtrees are always of the same height.
-	c.bal = 0
-	r.bal = 0
+	r.left = n
+
+	n.h = max(n.left.height(), n.right.height()) + 1
+	r.h = max(r.left.height(), r.right.height()) + 1
+
+	return r
 }
 
 // `rotateRight` is the mirrored version of `rotateLeft`.
-func (n *node) rotateRight(c *node) {
-	l := c.left
-	c.left = l.right
-	l.right = c
-	if c == n.left {
-		n.left = l
-	} else {
-		n.right = l
-	}
-	c.bal = 0
-	l.bal = 0
-}
+func (n *node) rotateRight() *node {
+	l := n.left
+	n.left = l.right
+	l.right = n
 
-// `rotateRightLeft` first rotates the right child of `c` to the right, then `c` to the left.
-func (n *node) rotateRightLeft(c *node) {
-	// `rotateRight` assumes that the left child has a left child, but as part of the rotate-right-left process,
-	// the left child of `c.right` is a leaf. We therefore have to tweak the balance factors before and after
-	// calling `rotateRight`.
-	// If we did not do that, we would not be able to reuse `rotateRight` and `rotateLeft`.
-	c.right.left.bal = 1
-	c.rotateRight(c.right)
-	c.right.bal = 1
-	n.rotateLeft(c)
-}
+	n.h = max(n.left.height(), n.right.height()) + 1
+	l.h = max(l.left.height(), l.right.height()) + 1
 
-// `rotateLeftRight` first rotates the left child of `c` to the left, then `c` to the right.
-func (n *node) rotateLeftRight(c *node) {
-	c.left.right.bal = -1 // The considerations from rotateRightLeft also apply here.
-	c.rotateLeft(c.left)
-	c.left.bal = -1
-	n.rotateRight(c)
-}
-
-// `rebalance` brings the (sub-)Tree with root node `c` back into a balanced state.
-func (n *node) rebalance(c *node) {
-	switch {
-	// left subtree is too high, and left child has a left child.
-	case c.bal == -2 && c.left.bal == -1:
-		n.rotateRight(c)
-		// right subtree is too high, and right child has a right child.
-	case c.bal == 2 && c.right.bal == 1:
-		n.rotateLeft(c)
-		// left subtree is too high, and left child has a right child.
-	case c.bal == -2 && c.left.bal == 1:
-		n.rotateLeftRight(c)
-		// right subtree is too high, and right child has a left child.
-	case c.bal == 2 && c.right.bal == -1:
-		n.rotateRightLeft(c)
-	}
+	return l
 }
 
 func (n *node) Find(key []byte) ([]byte, bool) {
@@ -197,25 +133,7 @@ func (n *node) Remove(key []byte) ([]byte, bool) {
 }
 
 func (t *Tree) Insert(key, data []byte) {
-	if t.root == nil {
-		t.root = &node{key: key, data: data, tree: t}
-		return
-	}
-	t.root.insert(key, data)
-	// If the root node gets out of balance,
-	if t.root.bal < -1 || t.root.bal > 1 {
-		t.rebalance()
-	}
-}
-
-// `node`'s `rebalance` method is invoked from the parent node of the node that needs rebalancing.
-// However, the root node of a Tree has no parent node.
-// Therefore, `Tree`'s `rebalance` method creates a fake parent node for rebalancing the root node.
-func (t *Tree) rebalance() {
-	fakeParent := &node{left: t.root, key: []byte{}, tree: t}
-	fakeParent.rebalance(t.root)
-	// Fetch the new root node from the fake parent node
-	t.root = fakeParent.left
+	t.root = t.root.insert(key, data)
 }
 
 // return the value for a key, ok is true if the key was found
@@ -291,4 +209,67 @@ func isNodeInRange(n *node, lower []byte, upper []byte) bool {
 	} else {
 		return (upper == nil || less(n.key, upper)) && (lower == nil || less(lower, n.key))
 	}
+}
+
+type queue struct {
+	values []*node
+}
+
+func newQueue() *queue {
+	queue := &queue{}
+	return queue
+}
+
+func (q *queue) enqueue(node *node) {
+	q.values = append(q.values, node)
+}
+
+func (q *queue) dequeue() *node {
+	var val node
+	if q.isEmpty() {
+		return nil
+	}
+	val = *q.values[0]
+	q.values = q.values[1:]
+	return &val
+}
+
+func (q *queue) drain() []*node {
+	nodes := q.values[0:]
+	q.values = make([]*node, 0)
+	return nodes
+}
+
+func (q *queue) isEmpty() bool {
+	return len(q.values) == 0
+}
+
+func (t *Tree) bfsDump() int {
+	q := newQueue()
+	q.enqueue(t.root)
+
+	height := 0
+
+	for !q.isEmpty() {
+		nodes := q.drain()
+		for _, n := range nodes {
+			fmt.Print(string(n.key), "(", n.balance(), "/", n.height(), ") ")
+			if n.left != nil {
+				q.enqueue(n.left)
+			}
+			if n.right != nil {
+				q.enqueue(n.right)
+			}
+		}
+		fmt.Println()
+		height++
+	}
+	return height
+}
+
+func max(a, b int) int {
+	if a > b {
+		return a
+	}
+	return b
 }
