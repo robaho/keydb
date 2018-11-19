@@ -3,6 +3,7 @@ package keydb
 import (
 	"fmt"
 	"log"
+	"math"
 	"strings"
 	"testing"
 )
@@ -43,7 +44,7 @@ func TestTree2(t *testing.T) {
 
 	height := tree.bfsDump()
 
-	if float64(height) > 18.0*math.Phi {
+	if float64(height) > math.Log2(150000)*math.Phi {
 		log.Fatalln("height should be log2(150000) * phi, height is ", height)
 	}
 }
