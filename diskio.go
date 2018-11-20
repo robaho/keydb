@@ -19,7 +19,7 @@ const maxCompressedLen uint16 = 0xFF
 const keyIndexInterval int = 2 // record every 16th block
 const removedKeyLen = 0xFFFFFFFF
 
-var emptySegment = errors.New("empty segment")
+var errEmptySegment = errors.New("empty segment")
 
 // called to write a memory segment to disk
 func writeSegmentToDisk(db *Database, table string, seg segment) error {
@@ -38,7 +38,7 @@ func writeSegmentToDisk(db *Database, table string, seg segment) error {
 	dataFilename := filepath.Join(db.path, fmt.Sprint(table, ".data.", id))
 
 	ds, err := writeAndLoadSegment(keyFilename, dataFilename, itr)
-	if err != nil && err != emptySegment {
+	if err != nil && err != errEmptySegment {
 		return err
 	}
 
@@ -176,7 +176,7 @@ func writeSegmentFiles(keyFName, dataFName string, itr LookupIterator) ([][]byte
 	dataW.Flush()
 
 	if keyCount == 0 {
-		return nil, emptySegment
+		return nil, errEmptySegment
 	}
 
 	return keyIndex, nil

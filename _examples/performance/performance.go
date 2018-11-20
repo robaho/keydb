@@ -30,14 +30,14 @@ func main() {
 	for i := 0; i < nr; i++ {
 		tx.Put([]byte(fmt.Sprintf("mykey%7d", i)), []byte(fmt.Sprint("myvalue", i)))
 		if i%10000 == 0 {
-			tx.Commit()
+			tx.CommitSync()
 			tx, err = db.BeginTX("main")
 			if err != nil {
 				panic(err)
 			}
 		}
 	}
-	tx.Commit()
+	tx.CommitSync()
 
 	end := time.Now()
 	duration := end.Sub(start).Nanoseconds()

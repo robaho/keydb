@@ -53,7 +53,7 @@ type diskSegmentIterator struct {
 	finished     bool
 }
 
-var keyRemoved = errors.New("key removed")
+var errKeyRemoved = errors.New("key removed")
 
 func loadDiskSegments(directory string, table string) []segment {
 	files, err := ioutil.ReadDir(directory)
@@ -258,7 +258,7 @@ func (ds *diskSegment) Put(key []byte, value []byte) error {
 
 func (ds *diskSegment) Get(key []byte) ([]byte, error) {
 	offset, len, err := binarySearch(ds, key)
-	if err == keyRemoved {
+	if err == errKeyRemoved {
 		return nil, nil
 	}
 	if err != nil {
@@ -366,7 +366,7 @@ func scanBlock(ds *diskSegment, block int64, key []byte, buffer []byte) (offset 
 			offset = int64(binary.LittleEndian.Uint64(buffer[endkey:]))
 			len = binary.LittleEndian.Uint32(buffer[endkey+8:])
 			if len == removedKeyLen {
-				err = keyRemoved
+				err = errKeyRemoved
 			}
 			return
 		}

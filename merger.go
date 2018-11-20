@@ -139,7 +139,7 @@ func mergeTableSegments(db *Database, table *internalTable, segmentCount int) er
 
 		table.segments = newsegments
 
-		index += 1
+		index++
 		table.Unlock()
 		time.Sleep(100 * time.Millisecond)
 	}

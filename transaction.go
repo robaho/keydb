@@ -8,6 +8,7 @@ import (
 
 var txID uint64
 
+// Transaction for keydb operations
 type Transaction struct {
 	table  string
 	open   bool
@@ -32,11 +33,12 @@ func (tl *transactionLookup) Next() (key, value []byte, err error) {
 	}
 }
 
+// GetID returns the internal transaction identifier
 func (tx *Transaction) GetID() uint64 {
 	return tx.id
 }
 
-// create a transaction for a database table.
+// BeginTX starts a transaction for a database table.
 // a Transaction can only be used by a single Go routine.
 // each transaction should be completed with either Commit, or Rollback
 func (db *Database) BeginTX(table string) (*Transaction, error) {
@@ -81,7 +83,7 @@ func (db *Database) BeginTX(table string) (*Transaction, error) {
 	return tx, nil
 }
 
-// retrieve a value from the table
+// Get a value for a key, error is non-nil if the key was not found or an error occurred
 func (tx *Transaction) Get(key []byte) (value []byte, err error) {
 	if !tx.open {
 		return nil, TransactionClosed
@@ -99,7 +101,7 @@ func (tx *Transaction) Get(key []byte) (value []byte, err error) {
 	return
 }
 
-// put a value into the table. empty keys are not supported.
+// Put a key/value pair into the table, overwriting any existing entry. empty keys are not supported.
 func (tx *Transaction) Put(key []byte, value []byte) error {
 	if !tx.open {
 		return TransactionClosed
@@ -113,7 +115,7 @@ func (tx *Transaction) Put(key []byte, value []byte) error {
 	return tx.memory.Put(key, value)
 }
 
-// remove a key and its value from the table. empty keys are not supported.
+// Remove a key and its value from the table. empty keys are not supported.
 func (tx *Transaction) Remove(key []byte) ([]byte, error) {
 	if !tx.open {
 		return nil, TransactionClosed
@@ -129,8 +131,8 @@ func (tx *Transaction) Remove(key []byte) ([]byte, error) {
 	return value, nil
 }
 
-// find matching record between lower and upper inclusive. lower or upper can be nil and
-// then the range is unbounded on that side. Using the iterator after the transaction has
+// Lookup finds matching record between lower and upper inclusive. lower or upper can be nil and
+// and then the range is unbounded on that side. Using the iterator after the transaction has
 // been Commit/Rollback is not supported.
 func (tx *Transaction) Lookup(lower []byte, upper []byte) (LookupIterator, error) {
 	if !tx.open {
@@ -143,7 +145,7 @@ func (tx *Transaction) Lookup(lower []byte, upper []byte) (LookupIterator, error
 	return &transactionLookup{itr}, nil
 }
 
-// persist any changes to the table. after Commit the transaction can no longer be used
+// Commit persists any changes to the table. after Commit the transaction can no longer be used
 func (tx *Transaction) Commit() error {
 	tx.db.Lock()
 	delete(tx.db.transactions, tx.id)
@@ -171,7 +173,7 @@ func (tx *Transaction) Commit() error {
 	return nil
 }
 
-// persist any changes to the table. waiting for disk segment to be created. note that synchronous writes are not used,
+// CommitSync persists any changes to the table, waiting for disk segment to be written. note that synchronous writes are not used,
 // so that a hard OS failure could leave the database in a corrupted state. after Commit the transaction can no longer be used
 func (tx *Transaction) CommitSync() error {
 	tx.db.Lock()
@@ -201,7 +203,7 @@ func (tx *Transaction) CommitSync() error {
 	return err
 }
 
-// discard any changes to the table. after Rollback the transaction can no longer be used
+// Rollback discards any changes to the table. after Rollback the transaction can no longer be used
 func (tx *Transaction) Rollback() error {
 	tx.db.Lock()
 	defer tx.db.Unlock()

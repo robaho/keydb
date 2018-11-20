@@ -16,7 +16,7 @@ func (msi *multiSegmentIterator) peekKey() ([]byte, error) {
 
 func (msi *multiSegmentIterator) Next() (key []byte, value []byte, err error) {
 	var currentIndex = -1
-	var lowest []byte = nil
+	var lowest []byte
 
 	// find the lowest next non-deleted key in any of the iterators
 

@@ -98,7 +98,7 @@ func findTableNames(dbpath string) []string {
 		}
 	}
 	var namesS []string
-	for k, _ := range names {
+	for k := range names {
 		namesS = append(namesS, k)
 
 	}

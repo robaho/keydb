@@ -11,7 +11,7 @@ import (
 	"sync/atomic"
 )
 
-// a Database reference is obtained via Open()
+// Database reference is obtained via Open()
 type Database struct {
 	sync.Mutex
 	tables       map[string]*internalTable
@@ -34,7 +34,7 @@ type internalTable struct {
 	name         string
 }
 
-// iterator interface for table scanning. all iterators should be read until completion
+// LookupIterator iterator interface for table scanning. all iterators should be read until completion
 type LookupIterator interface {
 	// returns EndOfIterator when complete, if err is nil, then key and value are valid
 	Next() (key []byte, value []byte, err error)
@@ -44,7 +44,7 @@ type LookupIterator interface {
 
 var dblock sync.RWMutex
 
-// open a database. The database can only be opened by a single process, but the *Database
+// Open a database. The database can only be opened by a single process, but the *Database
 // reference can be shared across Go routines. The path is a directory name.
 // if createIfNeeded is true, them if the db doesn't exist it will be created
 // Additional tables can be added on subsequent opens, but there is no current way to delete a table,
@@ -104,7 +104,7 @@ func create(path string) (*Database, error) {
 	return open(path)
 }
 
-// remove the database, deleting all files. the caller must be able to
+// Remove the database, deleting all files. the caller must be able to
 // gain exclusive multi to the database
 func Remove(path string) error {
 	dblock.Lock()
@@ -133,7 +133,7 @@ func Remove(path string) error {
 	return os.RemoveAll(path)
 }
 
-// returns nil if the path points to a valid database or empty directory
+// IsValidDatabase checks if the path points to a valid database or empty directory (which is also valid)
 func IsValidDatabase(path string) error {
 	fi, err := os.Stat(path)
 	if err != nil {
@@ -163,7 +163,7 @@ func IsValidDatabase(path string) error {
 	return nil
 }
 
-// close the database. any memory segments are persisted to disk.
+// Close the database. any memory segments are persisted to disk.
 // The resulting segments are merged until the default maxSegments is reached
 func (db *Database) Close() error {
 	dblock.Lock()
@@ -195,7 +195,7 @@ func (db *Database) Close() error {
 	return err
 }
 
-// close the database with control of the segment count. if segmentCount is 0, then
+// CloseWithMerge closes the database with control of the segment count. if segmentCount is 0, then
 // the merge process is skipped
 func (db *Database) CloseWithMerge(segmentCount int) error {
 	dblock.Lock()

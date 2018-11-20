@@ -5,7 +5,7 @@ import (
 	"fmt"
 )
 
-// auto balancing binary Tree, based on code from 'applied go', but modified for []byte key and values,
+// Tree is an auto balancing CVL tree, based on code from 'applied go', but modified for []byte key and values,
 // and range searching
 type Tree struct {
 	root *node
@@ -132,11 +132,12 @@ func (n *node) Remove(key []byte) ([]byte, bool) {
 	}
 }
 
+// Insert a key value pair into the Tree
 func (t *Tree) Insert(key, data []byte) {
 	t.root = t.root.insert(key, data)
 }
 
-// return the value for a key, ok is true if the key was found
+// Find the value for a given key, ok is true if the key was found
 func (t *Tree) Find(key []byte) (value []byte, ok bool) {
 	if t.root == nil {
 		return nil, false
@@ -144,7 +145,7 @@ func (t *Tree) Find(key []byte) (value []byte, ok bool) {
 	return t.root.Find(key)
 }
 
-// remove the value for a key, returning it. ok is true if the node existed and was found. If the key was not
+// Remove the value for a key, returning it. ok is true if the node existed and was found. If the key was not
 // found a 'nil' value is inserted into the tree
 func (t *Tree) Remove(key []byte) (value []byte, ok bool) {
 	old, ok := t.root.Remove(key)
@@ -156,13 +157,13 @@ func (t *Tree) Remove(key []byte) (value []byte, ok bool) {
 	}
 }
 
-// a node returned by FindNodes
+// TreeEntry is node returned by FindNodes
 type TreeEntry struct {
 	Key   []byte
 	Value []byte
 }
 
-// The functions finds all nodes within the provided key range, call function fn on each found node
+// FindNodes calls function fn on nodes with key between lower and upper inclusive
 func FindNodes(node *node, lower []byte, upper []byte, fn func(*node)) {
 	if node == nil {
 		return
@@ -186,6 +187,7 @@ func FindNodes(node *node, lower []byte, upper []byte, fn func(*node)) {
 	}
 }
 
+// FindNodes returns a slice of nodes with the keys in range lower and upper inclusive
 func (t *Tree) FindNodes(lower []byte, upper []byte) []TreeEntry {
 	if t.root == nil {
 		return nil
