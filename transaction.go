@@ -69,6 +69,8 @@ func (db *Database) BeginTX(table string) (*Transaction, error) {
 		}
 	}
 
+	it.Lock()
+	defer it.Unlock()
 	it.transactions++
 
 	tx := &Transaction{db: db, table: table, open: true}
@@ -208,12 +210,15 @@ func (tx *Transaction) Rollback() error {
 	tx.db.Lock()
 	defer tx.db.Unlock()
 
+	table := tx.db.tables[tx.table]
+	table.Lock()
+
 	tx.multi = nil
 	tx.open = false
 
 	delete(tx.db.transactions, tx.id)
 
-	table := tx.db.tables[tx.table]
+	defer table.Unlock()
 	table.transactions--
 
 	return nil
