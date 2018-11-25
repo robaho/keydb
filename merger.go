@@ -45,7 +45,14 @@ func mergeDiskSegments(db *Database) {
 }
 
 func mergeDiskSegments0(db *Database, segmentCount int) error {
+	db.Lock()
+	copy := make([]*internalTable, 0)
 	for _, table := range db.tables {
+		copy = append(copy, table)
+	}
+	db.Unlock()
+
+	for _, table := range copy {
 		err := mergeTableSegments(db, table, segmentCount)
 		if err != nil {
 			return err
