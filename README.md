@@ -46,3 +46,18 @@ purge removed key/value, it currently stores an empty []byte
         t.Fatal("unable to close database", err)
     }
 
+# Performance
+
+Using example/performance.go
+
+<pre>
+insert time  1000000 records =  2836 ms, usec per op  2
+close time  4028 ms
+scan time  2476 ms, usec per op  2
+scan time 50%  1146 ms, usec per op  2
+random access time  15 us per get
+close with merge 1 time  2 ms
+scan time  2497 ms, usec per op  2
+scan time 50%  1144 ms, usec per op  2
+random access time  14 us per get
+</pre>
