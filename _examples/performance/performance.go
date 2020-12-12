@@ -42,7 +42,7 @@ func main() {
 	end := time.Now()
 	duration := end.Sub(start).Microseconds()
 
-	fmt.Println("insert time ", nr, "records = ", duration/1000.0, "ms, usec per op ", (duration*1.0)/nr)
+	fmt.Println("insert time ", nr, "records = ", duration/1000, "ms, usec per op ", float64(duration)/nr)
 	start = time.Now()
 	err = db.Close()
 	end = time.Now()
@@ -64,7 +64,7 @@ func main() {
 	end = time.Now()
 	duration = end.Sub(start).Microseconds()
 
-	fmt.Println("close with merge 1 time ", duration/1000.0, "ms")
+	fmt.Println("close with merge 1 time ", float64(duration)/1000, "ms")
 
 	testRead()
 }
@@ -94,7 +94,7 @@ func testRead() {
 	end := time.Now()
 	duration := end.Sub(start).Microseconds()
 
-	fmt.Println("scan time ", duration/1000.0, "ms, usec per op ", (duration*1.0)/nr)
+	fmt.Println("scan time ", duration/1000, "ms, usec per op ", float64(duration)/nr)
 
 	start = time.Now()
 	itr, err = tx.Lookup([]byte("mykey 300000"), []byte("mykey 799999"))
@@ -112,7 +112,7 @@ func testRead() {
 	end = time.Now()
 	duration = end.Sub(start).Microseconds()
 
-	fmt.Println("scan time 50% ", duration/1000.0, "ms, usec per op ", (duration*1.0)/500000)
+	fmt.Println("scan time 50% ", duration/1000, "ms, usec per op ", float64(duration)/500000)
 
 	r := rand.New(rand.NewSource(time.Now().UnixNano()))
 
@@ -128,7 +128,7 @@ func testRead() {
 	end = time.Now()
 	duration = end.Sub(start).Microseconds()
 
-	fmt.Println("random access time ", (duration*1.0)/int64(nr/10.0), "us per get")
+	fmt.Println("random access time ", float64(duration)/(nr/10), "us per get")
 
 	tx.Rollback()
 	db.Close()
