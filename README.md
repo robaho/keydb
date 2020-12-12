@@ -2,7 +2,7 @@
 
 high performance key value database written in Go
 
-bulk insert and sequential read \< 3 micro secs
+bulk insert and sequential read < 3 micro secs
 
 random access read of disk based record, approx. 13 us
 

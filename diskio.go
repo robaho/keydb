@@ -11,20 +11,18 @@ import (
 )
 
 const keyBlockSize = 4096
-const maxKeySize = 1024
+const maxKeySize = 1000
 const endOfBlock uint16 = 0x8000
 const compressedBit uint16 = 0x8000
 const maxPrefixLen uint16 = 0xFF ^ 0x80
 const maxCompressedLen uint16 = 0xFF
-const keyIndexInterval int = 2 // record every 16th block
+const keyIndexInterval int = 16
 const removedKeyLen = 0xFFFFFFFF
 
 var errEmptySegment = errors.New("empty segment")
 
 // called to write a memory segment to disk
 func writeSegmentToDisk(db *Database, table string, seg segment) error {
-	defer db.wg.Done() // allows database to close with no writers pending
-
 	var err error
 
 	itr, err := seg.Lookup(nil, nil)

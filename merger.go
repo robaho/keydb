@@ -122,7 +122,7 @@ func mergeTableSegments(db *Database, table *internalTable, segmentCount int) er
 
 		for i, s := range mergable {
 			if s != segments[i+index] {
-				return errors.New(fmt.Sprint("unexpected segment change,", s, segments[i]))
+				return errors.New(fmt.Sprint("unexpected segment change,", s, segments[i+index]))
 			}
 		}
 

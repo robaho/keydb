@@ -149,6 +149,9 @@ func (tx *Transaction) Lookup(lower []byte, upper []byte) (LookupIterator, error
 
 // Commit persists any changes to the table. after Commit the transaction can no longer be used
 func (tx *Transaction) Commit() error {
+	if !tx.open {
+		return TransactionClosed
+	}
 	tx.db.Lock()
 	delete(tx.db.transactions, tx.id)
 	table := tx.db.tables[tx.table]
@@ -164,6 +167,7 @@ func (tx *Transaction) Commit() error {
 	tx.db.wg.Add(1)
 
 	go func() {
+		defer tx.db.wg.Done() // allows database to close with no writers pending
 		err := writeSegmentToDisk(tx.db, tx.table, tx.memory)
 		if err != nil {
 			tx.db.Lock()
@@ -178,6 +182,9 @@ func (tx *Transaction) Commit() error {
 // CommitSync persists any changes to the table, waiting for disk segment to be written. note that synchronous writes are not used,
 // so that a hard OS failure could leave the database in a corrupted state. after Commit the transaction can no longer be used
 func (tx *Transaction) CommitSync() error {
+	if !tx.open {
+		return TransactionClosed
+	}
 	tx.db.Lock()
 	delete(tx.db.transactions, tx.id)
 	table := tx.db.tables[tx.table]
@@ -201,12 +208,16 @@ func (tx *Transaction) CommitSync() error {
 	table.Unlock()
 
 	err = writeSegmentToDisk(tx.db, tx.table, tx.memory)
+	tx.db.wg.Done() // allows database to close with no writers pending
 
 	return err
 }
 
 // Rollback discards any changes to the table. after Rollback the transaction can no longer be used
 func (tx *Transaction) Rollback() error {
+	if !tx.open {
+		return TransactionClosed
+	}
 	tx.db.Lock()
 	defer tx.db.Unlock()
 
