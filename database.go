@@ -42,7 +42,7 @@ type LookupIterator interface {
 	peekKey() ([]byte, error)
 }
 
-var all_dblock sync.RWMutex
+var global_lock sync.RWMutex
 
 // Open a database. The database can only be opened by a single process, but the *Database
 // reference can be shared across Go routines. The path is a directory name.
@@ -50,8 +50,8 @@ var all_dblock sync.RWMutex
 // Additional tables can be added on subsequent opens, but there is no current way to delete a table,
 // except for deleting the table related files from the directory
 func Open(path string, createIfNeeded bool) (*Database, error) {
-	all_dblock.Lock()
-	defer all_dblock.Unlock()
+	global_lock.Lock()
+	defer global_lock.Unlock()
 
 	db, err := open(path)
 	if err == NoDatabaseFound && createIfNeeded == true {
@@ -107,8 +107,8 @@ func create(path string) (*Database, error) {
 // Remove the database, deleting all files. the caller must be able to
 // gain exclusive multi to the database
 func Remove(path string) error {
-	all_dblock.Lock()
-	defer all_dblock.Unlock()
+	global_lock.Lock()
+	defer global_lock.Unlock()
 
 	path = filepath.Clean(path)
 
@@ -166,8 +166,8 @@ func IsValidDatabase(path string) error {
 // Close the database. any memory segments are persisted to disk.
 // The resulting segments are merged until the default maxSegments is reached
 func (db *Database) Close() error {
-	all_dblock.Lock()
-	defer all_dblock.Unlock()
+	global_lock.Lock()
+	defer global_lock.Unlock()
 	if !db.open {
 		return DatabaseClosed
 	}
@@ -198,8 +198,8 @@ func (db *Database) Close() error {
 // CloseWithMerge closes the database with control of the segment count. if segmentCount is 0, then
 // the merge process is skipped
 func (db *Database) CloseWithMerge(segmentCount int) error {
-	all_dblock.Lock()
-	defer all_dblock.Unlock()
+	global_lock.Lock()
+	defer global_lock.Unlock()
 	if !db.open {
 		return DatabaseClosed
 	}
