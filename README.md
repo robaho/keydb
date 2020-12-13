@@ -51,13 +51,15 @@ purge removed key/value, it currently stores an empty []byte
 Using example/performance.go
 
 <pre>
-insert time  1000000 records =  2836 ms, usec per op  2
-close time  4028 ms
-scan time  2476 ms, usec per op  2
-scan time 50%  1146 ms, usec per op  2
-random access time  15 us per get
-close with merge 1 time  2 ms
-scan time  2497 ms, usec per op  2
-scan time 50%  1144 ms, usec per op  2
-random access time  14 us per get
+Using Go 1.15.5:
+
+insert time  10000000 records =  24670 ms, usec per op  2.4670965
+close time  16945 ms
+scan time  10631 ms, usec per op  1.063149
+scan time 50%  470 ms, usec per op  0.941686
+random access time  9.658001 us per get
+close with merge 1 time  0.681 ms
+scan time  11253 ms, usec per op  1.1253718
+scan time 50%  471 ms, usec per op  0.942876
+random access time  9.702651 us per get
 </pre>
