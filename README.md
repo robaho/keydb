@@ -4,7 +4,7 @@ high performance key value database written in Go
 
 bulk insert and sequential read < 3 micro secs
 
-random access read of disk based record, approx. 13 us
+random access read of disk based record < 10 micro secs
 
 uses LSM trees, see https://en.wikipedia.org/wiki/Log-structured_merge-tree
 
