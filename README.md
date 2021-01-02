@@ -2,9 +2,9 @@
 
 high performance key value database written in Go
 
-bulk insert and sequential read < 3 micro secs
+bulk insert and sequential read < 1 micro sec
 
-random access read of disk based record < 10 micro secs
+random access read of disk based record < 4 micro secs
 
 uses LSM trees, see https://en.wikipedia.org/wiki/Log-structured_merge-tree
 
@@ -53,13 +53,13 @@ Using example/performance.go
 <pre>
 Using Go 1.15.5:
 
-insert time  10000000 records =  24670 ms, usec per op  2.4670965
-close time  16945 ms
-scan time  10631 ms, usec per op  1.063149
-scan time 50%  470 ms, usec per op  0.941686
-random access time  9.658001 us per get
-close with merge 1 time  0.681 ms
-scan time  11253 ms, usec per op  1.1253718
-scan time 50%  471 ms, usec per op  0.942876
-random access time  9.702651 us per get
+insert time  10000000 records =  17890 ms, usec per op  1.7890143
+close time  8477 ms
+scan time  2887 ms, usec per op  0.2887559
+scan time 50%  81 ms, usec per op  0.162584
+random access time  3.508029 us per get
+close with merge 1 time  0.148 ms
+scan time  2887 ms, usec per op  0.2887248
+scan time 50%  85 ms, usec per op  0.171406
+random access time  3.487226 us per get
 </pre>
