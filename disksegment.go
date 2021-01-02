@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
-	"os"
 	"path/filepath"
 	"sort"
 	"strconv"
@@ -30,9 +29,9 @@ import (
 // byte array with the offset and length in the key file
 //
 type diskSegment struct {
-	keyFile   *os.File
+	keyFile   *memoryMappedFile
 	keyBlocks int64
-	dataFile  *os.File
+	dataFile  *memoryMappedFile
 	id        uint64
 	// nil for segments loaded during initial open
 	// otherwise holds the key for every keyIndexInterval block
@@ -101,23 +100,18 @@ func newDiskSegment(keyFilename, dataFilename string, keyIndex [][]byte) segment
 	segmentID := getSegmentID(keyFilename)
 
 	ds := &diskSegment{}
-	kf, err := os.Open(keyFilename)
+	kf, err := newMemoryMappedFile(keyFilename)
 	if err != nil {
 		panic(err)
 	}
-	df, err := os.Open(dataFilename)
+	df, err := newMemoryMappedFile(dataFilename)
 	if err != nil {
 		panic(err)
 	}
 	ds.keyFile = kf
 	ds.dataFile = df
 
-	fi, err := kf.Stat()
-	if err != nil {
-		panic(err)
-	}
-
-	ds.keyBlocks = (fi.Size()-1)/keyBlockSize + 1
+	ds.keyBlocks = (kf.Length()-1)/keyBlockSize + 1
 	ds.id = segmentID
 
 	if keyIndex == nil {
@@ -130,7 +124,7 @@ func newDiskSegment(keyFilename, dataFilename string, keyIndex [][]byte) segment
 	return ds
 }
 
-func loadKeyIndex(kf *os.File, keyBlocks int64) [][]byte {
+func loadKeyIndex(kf *memoryMappedFile, keyBlocks int64) [][]byte {
 	buffer := make([]byte, keyBlockSize)
 	keyIndex := make([][]byte, 0)
 	// build key index
