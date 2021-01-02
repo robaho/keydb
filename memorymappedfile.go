@@ -2,7 +2,7 @@ package keydb
 
 import "golang.org/x/exp/mmap"
 
-//TODO need fallback to os.File for platfoms without mmap support
+//TODO need fallback to os.File for platforms without mmap support
 
 type memoryMappedFile struct {
 	file   *mmap.ReaderAt
