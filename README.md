@@ -1,5 +1,7 @@
 # keydb
 
+## keydb is deprecated, use [robaho/leveldb](github.com/robaho/leveldb) which is more stable and uses the Google LevelDB api (similar).
+
 high performance key value database written in Go
 
 bulk insert and sequential read < 1 micro sec
