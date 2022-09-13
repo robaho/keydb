@@ -1,6 +1,6 @@
 # keydb
 
-## keydb is deprecated, use [robaho/leveldb](github.com/robaho/leveldb) which is more stable and uses the Google LevelDB api (similar).
+## keydb is deprecated, use [robaho/leveldb](http://www.github.com/robaho/leveldb) which is more stable and uses the Google LevelDB api (similar).
 
 high performance key value database written in Go
 
